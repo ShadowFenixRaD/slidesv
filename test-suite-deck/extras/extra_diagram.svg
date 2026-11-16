@@ -1,9 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720">
   <desc>Slide 6 (Tier 3): Plain SVG inside --folder extras, auto-assigned to Slide 6.</desc>
   <g font-family="sans-serif" fill="#f8fafc" text-anchor="middle">
-    <text x="640" y="130" font-size="42" font-weight="700">Slide 6 — Tier 3 Folder Sequential</text>
+    <switch>
+      <text x="640" y="130" font-size="42" font-weight="700" systemLanguage="en">Slide 6 — Tier 3 Folder Sequential</text>
+      <text x="640" y="130" font-size="42" font-weight="700" systemLanguage="it">Slide 6 — Sequenziale Tier 3 da Cartella</text>
+      <text x="640" y="130" font-size="42" font-weight="700">Slide 6</text>
+    </switch>
     <circle cx="400" cy="380" r="95" fill="#1e293b" stroke="#06b6d4" stroke-width="3" />
-    <text x="400" y="388" font-size="24">Input</text>
+    <switch>
+      <text x="400" y="388" font-size="24" systemLanguage="en">Input</text>
+      <text x="400" y="388" font-size="24" systemLanguage="it">Ingressi</text>
+      <text x="400" y="388" font-size="24">Input</text>
+    </switch>
     <line x1="495" y1="380" x2="545" y2="380" stroke="#94a3b8" stroke-width="3" />
     <circle cx="640" cy="380" r="95" fill="#1e293b" stroke="#10b981" stroke-width="3" />
     <text x="640" y="388" font-size="24">svg-deck</text>

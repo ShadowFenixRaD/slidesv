@@ -19,13 +19,35 @@
 
   <g inkscape:label="box_step1-step_1" opacity="0">
     <rect x="80" y="230" width="530" height="160" rx="14" fill="#1e293b" stroke="#06b6d4" stroke-width="2" />
-    <text x="115" y="295" font-family="sans-serif" font-size="24" fill="#67e8f9">Nested &lt;g&gt; Step 1</text>
-    <text x="115" y="335" font-family="sans-serif" font-size="18" fill="#cbd5e1">Inherits slide 2 selector from filename</text>
+    <switch>
+      <g systemLanguage="en">
+        <text x="115" y="295" font-family="sans-serif" font-size="24" fill="#67e8f9">Nested &lt;g&gt; Step 1</text>
+        <text x="115" y="335" font-family="sans-serif" font-size="18" fill="#cbd5e1">Inherits slide 2 selector from filename</text>
+      </g>
+      <g systemLanguage="it">
+        <text x="115" y="295" font-family="sans-serif" font-size="24" fill="#67e8f9">Step 1 da &lt;g&gt; Annidato</text>
+        <text x="115" y="335" font-family="sans-serif" font-size="18" fill="#cbd5e1">Eredita il selettore slide 2 dal nome file</text>
+      </g>
+      <g>
+        <text x="115" y="295" font-family="sans-serif" font-size="24" fill="#67e8f9">Step 1</text>
+      </g>
+    </switch>
   </g>
 
   <g inkscape:label="extra_callout-s_ctrl_m" style="display:none">
     <rect x="660" y="230" width="540" height="160" rx="14" fill="#31102f" stroke="#f472b6" stroke-width="2" />
-    <text x="695" y="295" font-family="sans-serif" font-size="24" fill="#f9a8d4">Hotkey Callout (Ctrl+M)</text>
-    <text x="695" y="335" font-family="sans-serif" font-size="18" fill="#fbcfe8">Nested toggle inside Tier 1 SVG</text>
+    <switch>
+      <g systemLanguage="en">
+        <text x="695" y="295" font-family="sans-serif" font-size="24" fill="#f9a8d4">Hotkey Callout (Ctrl+M)</text>
+        <text x="695" y="335" font-family="sans-serif" font-size="18" fill="#fbcfe8">Nested toggle inside Tier 1 SVG</text>
+      </g>
+      <g systemLanguage="it">
+        <text x="695" y="295" font-family="sans-serif" font-size="24" fill="#f9a8d4">Riquadro Scorciatoia (Ctrl+M)</text>
+        <text x="695" y="335" font-family="sans-serif" font-size="18" fill="#fbcfe8">Toggle annidato dentro un SVG Tier 1</text>
+      </g>
+      <g>
+        <text x="695" y="295" font-family="sans-serif" font-size="24" fill="#f9a8d4">Ctrl+M</text>
+      </g>
+    </switch>
   </g>
 </svg>

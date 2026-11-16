@@ -2,7 +2,11 @@
   <g font-family="sans-serif" fill="#f8fafc" opacity="0">
     <animate attributeName="opacity" from="0" to="1" dur="0.4s" begin="0s" fill="freeze" />
     <rect x="660" y="185" width="540" height="150" rx="14" fill="#1e293b" stroke="#10b981" stroke-width="2" />
-    <text x="695" y="245" font-size="24" font-weight="600" fill="#34d399">src/core/compositor.ts</text>
-    <text x="695" y="285" font-size="18" fill="#cbd5e1">ID/SMIL namespacing, tokens, &lt;switch&gt; prep</text>
+    <text x="695" y="245" font-size="24" font-weight="600" fill="#34d399">src/sanitizer.rs</text>
+    <switch>
+      <text x="695" y="285" font-size="18" fill="#cbd5e1" systemLanguage="en">Non-destructive &lt;g&gt; layers, IDs, tokens, &lt;switch&gt;</text>
+      <text x="695" y="285" font-size="18" fill="#cbd5e1" systemLanguage="it">Livelli &lt;g&gt; non distruttivi, ID, token, &lt;switch&gt;</text>
+      <text x="695" y="285" font-size="18" fill="#cbd5e1">src/sanitizer.rs</text>
+    </switch>
   </g>
 </svg>

@@ -13,3 +13,9 @@
   1. Eseguire `cargo test`.
   2. Eseguire `cargo build --release` e verificare la compilazione su `demo-deck/`.
 - Per operazioni Git utilizzare sempre `gemgit` (mai `git`).
+
+## 3. Documentazione (`README.md`)
+- Aggiornare sempre [README.md](README.md) ogni volta che viene modificata o aggiunta una funzionalità, un'opzione CLI, una regola di parsing o un comportamento del player.
+
+## 4. Upload con `transfer`
+- Ogni caricamento effettuato tramite il comando `transfer` deve sempre impostare il limite massimo di download a 1: `transfer upload -d 1 -f <file>` (ovvero `--expiry-downloads 1`).
