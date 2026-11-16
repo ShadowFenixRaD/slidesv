@@ -1,6 +1,6 @@
 [package]
 name = "svg-deck"
-version = "0.2.0"
+version = "1.0.0"
 edition = "2024"
 description = "Standalone zero-dependency SVG presentation compiler"
 
