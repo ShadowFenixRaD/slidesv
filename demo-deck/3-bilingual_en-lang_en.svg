@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720">
+  <g font-family="sans-serif" fill="#f8fafc">
+    <text x="80" y="140" font-size="44" font-weight="700">Multilingual &amp; Radio Themes</text>
+    <text x="80" y="210" font-size="24" fill="#cbd5e1">This layer is active when English (-lang_en) is selected.</text>
+    <text x="80" y="260" font-size="20" fill="#94a3b8">Switch theme groups via Slide 0 or HUD.</text>
+  </g>
+</svg>

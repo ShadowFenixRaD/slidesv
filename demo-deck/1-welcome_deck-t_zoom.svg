@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720">
+  <desc>Welcome to the Slidesv SVG presentation engine demo. Press Space or Right Arrow to advance.</desc>
+  <g transform="translate(640, 310)" text-anchor="middle" font-family="sans-serif">
+    <switch>
+      <g systemLanguage="en">
+        <text y="0" fill="#f8fafc" font-size="64" font-weight="700" opacity="0">
+          Slidesv SVG Engine
+          <animate id="fade1" attributeName="opacity" from="0" to="1" dur="0.6s" begin="0s" fill="freeze" />
+        </text>
+        <text y="58" fill="#94a3b8" font-size="26" opacity="0">
+          Zero-dependency live &amp; compiled SVG presentations
+          <animate attributeName="opacity" from="0" to="1" dur="0.5s" begin="fade1.end+0.15s" fill="freeze" />
+        </text>
+      </g>
+      <g systemLanguage="it">
+        <text y="0" fill="#f8fafc" font-size="64" font-weight="700" opacity="0">
+          Motore SVG Slidesv
+          <animate id="fade1it" attributeName="opacity" from="0" to="1" dur="0.6s" begin="0s" fill="freeze" />
+        </text>
+        <text y="58" fill="#94a3b8" font-size="26" opacity="0">
+          Presentazioni SVG live e compilate a zero dipendenze
+          <animate attributeName="opacity" from="0" to="1" dur="0.5s" begin="fade1it.end+0.15s" fill="freeze" />
+        </text>
+      </g>
+      <g>
+        <text y="0" fill="#f8fafc" font-size="64" font-weight="700">Slidesv</text>
+        <text y="58" fill="#94a3b8" font-size="26">SVG Presentation Engine</text>
+      </g>
+    </switch>
+  </g>
+</svg>
