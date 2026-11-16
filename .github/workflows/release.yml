@@ -1,0 +1,177 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v0.2.0)"
+        required: true
+        type: string
+      draft:
+        description: "Create as draft release"
+        required: false
+        default: false
+        type: boolean
+      prerelease:
+        description: "Mark as pre-release"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    if: github.server_url == 'https://github.com'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --locked
+
+  build:
+    if: github.server_url == 'https://github.com'
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux (x64, x86, arm64, arm32)
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            ext: ""
+            archive: tar.gz
+            apt: ""
+            linker_env: ""
+          - os: ubuntu-latest
+            target: i686-unknown-linux-gnu
+            ext: ""
+            archive: tar.gz
+            apt: gcc-multilib
+            linker_env: ""
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            ext: ""
+            archive: tar.gz
+            apt: gcc-aarch64-linux-gnu
+            linker_env: CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
+          - os: ubuntu-latest
+            target: armv7-unknown-linux-gnueabihf
+            ext: ""
+            archive: tar.gz
+            apt: gcc-arm-linux-gnueabihf
+            linker_env: CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER=arm-linux-gnueabihf-gcc
+
+          # Windows (x64, x86, arm64)
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            ext: .exe
+            archive: zip
+            apt: ""
+            linker_env: ""
+          - os: windows-latest
+            target: i686-pc-windows-msvc
+            ext: .exe
+            archive: zip
+            apt: ""
+            linker_env: ""
+          - os: windows-latest
+            target: aarch64-pc-windows-msvc
+            ext: .exe
+            archive: zip
+            apt: ""
+            linker_env: ""
+
+          # macOS (x64, arm64)
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            ext: ""
+            archive: tar.gz
+            apt: ""
+            linker_env: ""
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            ext: ""
+            archive: tar.gz
+            apt: ""
+            linker_env: ""
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Install Linux cross-compilation toolchain
+        if: matrix.apt != ''
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ${{ matrix.apt }}
+
+      - name: Build release binary
+        shell: bash
+        run: |
+          if [ -n "${{ matrix.linker_env }}" ]; then
+            export "${{ matrix.linker_env }}"
+          fi
+          cargo build --release --locked --target "${{ matrix.target }}"
+
+      - name: Package artifact (Unix)
+        if: matrix.archive == 'tar.gz'
+        shell: bash
+        run: |
+          mkdir -p release-assets
+          BIN_NAME="svg-deck${{ matrix.ext }}"
+          PKG_NAME="svg-deck-${{ inputs.tag }}-${{ matrix.target }}.tar.gz"
+          cp "target/${{ matrix.target }}/release/${BIN_NAME}" "release-assets/${BIN_NAME}"
+          tar -C release-assets -czf "release-assets/${PKG_NAME}" "${BIN_NAME}"
+          rm "release-assets/${BIN_NAME}"
+          (cd release-assets && sha256sum "${PKG_NAME}" > "${PKG_NAME}.sha256")
+
+      - name: Package artifact (Windows)
+        if: matrix.archive == 'zip'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release-assets | Out-Null
+          $bin = "svg-deck${{ matrix.ext }}"
+          $pkg = "svg-deck-${{ inputs.tag }}-${{ matrix.target }}.zip"
+          Copy-Item "target/${{ matrix.target }}/release/$bin" "release-assets/$bin"
+          Compress-Archive -Path "release-assets/$bin" -DestinationPath "release-assets/$pkg"
+          Remove-Item "release-assets/$bin"
+          $hash = (Get-FileHash "release-assets/$pkg" -Algorithm SHA256).Hash.ToLower()
+          "$hash  $pkg" | Out-File -Encoding ascii "release-assets/$pkg.sha256"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.target }}
+          path: release-assets/*
+
+  release:
+    if: github.server_url == 'https://github.com'
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag }}
+          name: svg-deck ${{ inputs.tag }}
+          draft: ${{ inputs.draft }}
+          prerelease: ${{ inputs.prerelease }}
+          generate_release_notes: true
+          files: artifacts/*
