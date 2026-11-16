@@ -60,9 +60,11 @@ export class SlidePlayer {
     const skipParam =
       params.get('skipStarter') ?? params.get('skip0') ?? params.get('start');
     const shouldSkipStarter =
-      skipStarterConfig === true ||
-      skipParam === '1' ||
-      skipParam === 'true';
+      skipParam === '0' || skipParam === 'false'
+        ? false
+        : skipStarterConfig === true ||
+          skipParam === '1' ||
+          skipParam === 'true';
 
     const slideParam = params.get('slide');
     if (slideParam !== null) {
