@@ -1,30 +1,17 @@
 import { isLayerDefaultActive } from '../core/parser.ts';
-import type { ComposedLayer, DeckData, ParsedShortcut } from '../core/types.ts';
+import type { ComposedLayer, DeckData } from '../core/types.ts';
 import { mountPresenterView } from './presenter.ts';
 import {
   applySwitchLanguage,
   DrawingController,
+  eventMatchesShortcut,
+  getAvailableStepsForSlide,
   LaserController,
   pauseSvgAnimations,
   resetAndPlaySvgAnimations,
   SyncBus,
 } from './tools.ts';
 import type { SyncStatePayload } from './tools.ts';
-
-function eventMatchesShortcut(e: KeyboardEvent, sc: ParsedShortcut): boolean {
-  const key = e.key.toLowerCase();
-  if (key !== sc.key) return false;
-  const needCtrl = sc.modifiers.includes('ctrl');
-  const needAlt = sc.modifiers.includes('alt');
-  const needShift = sc.modifiers.includes('shift');
-  const needMeta = sc.modifiers.includes('meta');
-  return (
-    e.ctrlKey === needCtrl &&
-    e.altKey === needAlt &&
-    e.shiftKey === needShift &&
-    e.metaKey === needMeta
-  );
-}
 
 export class SlidePlayer {
   private deck: DeckData;
@@ -47,7 +34,12 @@ export class SlidePlayer {
 
   private slideFrames: HTMLElement[] = [];
 
-  constructor(deck: DeckData, initialLang?: string, initialFilters?: string[]) {
+  constructor(
+    deck: DeckData,
+    initialLang?: string,
+    initialFilters?: string[],
+    skipStarterConfig?: boolean,
+  ) {
     this.deck = deck;
     this.bus = new SyncBus();
 
@@ -65,12 +57,21 @@ export class SlidePlayer {
       return;
     }
 
+    const skipParam =
+      params.get('skipStarter') ?? params.get('skip0') ?? params.get('start');
+    const shouldSkipStarter =
+      skipStarterConfig === true ||
+      skipParam === '1' ||
+      skipParam === 'true';
+
     const slideParam = params.get('slide');
     if (slideParam !== null) {
       const n = Number.parseInt(slideParam, 10);
       if (!Number.isNaN(n) && n >= 0 && n <= deck.totalSlides) {
         this.currentSlide = n;
       }
+    } else if (shouldSkipStarter && deck.totalSlides > 0) {
+      this.currentSlide = 1;
     }
 
     const stepParam = params.get('step');
@@ -191,6 +192,12 @@ export class SlidePlayer {
         else if (msg.action === 'goto' && msg.slide !== undefined) {
           this.goToSlide(msg.slide, msg.step ?? 0);
         }
+      } else if (msg.type === 'set-language') {
+        this.setLanguage(msg.lang);
+      } else if (msg.type === 'set-group') {
+        this.selectGroupOption(msg.group, msg.layerKey);
+      } else if (msg.type === 'toggle-filter') {
+        this.toggleFilter(msg.layerKey);
       } else if (msg.type === 'laser') {
         if (msg.payload.active) {
           this.laserCtrl.showAt(msg.payload.x, msg.payload.y, false);
@@ -360,12 +367,16 @@ export class SlidePlayer {
     }
 
     const slide = this.deck.slides[this.currentSlide - 1];
-    if (slide && this.currentStep < slide.maxStep) {
-      this.currentStep += 1;
-      this.applyVisibilityAndAnimations(true, this.currentStep);
-      this.renderHud();
-      this.broadcastState();
-      return;
+    if (slide) {
+      const steps = getAvailableStepsForSlide(slide, this.getSyncState());
+      const nextStep = steps.find((s) => s > this.currentStep);
+      if (nextStep !== undefined) {
+        this.currentStep = nextStep;
+        this.applyVisibilityAndAnimations(true, this.currentStep);
+        this.renderHud();
+        this.broadcastState();
+        return;
+      }
     }
 
     if (this.currentSlide < this.deck.totalSlides) {
@@ -376,8 +387,11 @@ export class SlidePlayer {
   public prev(): void {
     if (this.currentSlide === 0) return;
 
-    if (this.currentStep > 0) {
-      this.currentStep -= 1;
+    const slide = this.deck.slides[this.currentSlide - 1];
+    if (slide && this.currentStep > 0) {
+      const steps = getAvailableStepsForSlide(slide, this.getSyncState());
+      const prevSteps = steps.filter((s) => s < this.currentStep);
+      this.currentStep = prevSteps[prevSteps.length - 1] ?? 0;
       this.applyVisibilityAndAnimations(false);
       this.renderHud();
       this.broadcastState();
@@ -386,7 +400,11 @@ export class SlidePlayer {
 
     if (this.currentSlide > 1) {
       const prevSlide = this.deck.slides[this.currentSlide - 2];
-      this.goToSlide(this.currentSlide - 1, prevSlide ? prevSlide.maxStep : 0);
+      const prevSteps = prevSlide
+        ? getAvailableStepsForSlide(prevSlide, this.getSyncState())
+        : [0];
+      const maxPrevStep = prevSteps[prevSteps.length - 1] ?? 0;
+      this.goToSlide(this.currentSlide - 1, maxPrevStep);
     } else {
       this.goToSlide(0, 0);
     }
@@ -718,9 +736,11 @@ export class SlidePlayer {
   private renderHud(): void {
     const slide =
       this.currentSlide >= 1 ? this.deck.slides[this.currentSlide - 1] : null;
+    const steps = slide ? getAvailableStepsForSlide(slide, this.getSyncState()) : [0];
+    const maxStep = steps[steps.length - 1] ?? 0;
     const stepText =
-      slide && slide.maxStep > 0
-        ? ` (${this.currentStep}/${slide.maxStep})`
+      slide && maxStep > 0
+        ? ` (${this.currentStep}/${maxStep})`
         : '';
 
     const langSelect =

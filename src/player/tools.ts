@@ -1,3 +1,5 @@
+import type { ComposedLayer, ComposedSlide, ParsedShortcut } from '../core/types.ts';
+
 export interface SyncStatePayload {
   currentSlide: number;
   currentStep: number;
@@ -16,7 +18,59 @@ export type SyncMessage =
   | { type: 'state'; payload: SyncStatePayload }
   | { type: 'request-state' }
   | { type: 'nav'; action: 'next' | 'prev' | 'goto'; slide?: number; step?: number }
+  | { type: 'set-language'; lang: string }
+  | { type: 'set-group'; group: string; layerKey: string }
+  | { type: 'toggle-filter'; layerKey: string }
   | { type: 'laser'; payload: LaserPayload };
+
+export function eventMatchesShortcut(e: KeyboardEvent, sc: ParsedShortcut): boolean {
+  const key = e.key.toLowerCase();
+  if (key !== sc.key) return false;
+  const needCtrl = sc.modifiers.includes('ctrl');
+  const needAlt = sc.modifiers.includes('alt');
+  const needShift = sc.modifiers.includes('shift');
+  const needMeta = sc.modifiers.includes('meta');
+  return (
+    e.ctrlKey === needCtrl &&
+    e.altKey === needAlt &&
+    e.shiftKey === needShift &&
+    e.metaKey === needMeta
+  );
+}
+
+export function isLayerEligibleForState(
+  layer: ComposedLayer,
+  state: Pick<SyncStatePayload, 'activeLanguage' | 'groupChoices' | 'toggles'>,
+): boolean {
+  const { meta } = layer;
+  if (
+    meta.languages.length > 0 &&
+    state.activeLanguage &&
+    !meta.languages.includes(state.activeLanguage.toLowerCase())
+  ) {
+    return false;
+  }
+  if (meta.group !== null) {
+    return state.groupChoices[meta.group] === meta.filename;
+  }
+  if (meta.shortcuts.length > 0) {
+    return Boolean(state.toggles[meta.filename]);
+  }
+  return true;
+}
+
+export function getAvailableStepsForSlide(
+  slide: ComposedSlide,
+  state: Pick<SyncStatePayload, 'activeLanguage' | 'groupChoices' | 'toggles'>,
+): number[] {
+  const stepSet = new Set<number>([0]);
+  for (const layer of slide.layers) {
+    if (layer.meta.step > 0 && isLayerEligibleForState(layer, state)) {
+      stepSet.add(layer.meta.step);
+    }
+  }
+  return Array.from(stepSet).sort((a, b) => a - b);
+}
 
 export class SyncBus {
   private channel: BroadcastChannel | null = null;

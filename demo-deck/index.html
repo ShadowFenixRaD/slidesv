@@ -575,12 +575,39 @@ kbd {
 .presenter-footer {
   grid-column: 1 / -1;
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
+  gap: 0.75rem;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 0.6rem 1rem;
+}
+
+.presenter-controls-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.presenter-ctrl-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.45rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.presenter-ctrl-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin-right: 0.15rem;
 }
 
 .box-label {
@@ -1314,6 +1341,8 @@ function composeDeck(
 
 
 // --- src/player/tools.ts ---
+                                                                                     
+
                                    
                        
                       
@@ -1332,7 +1361,59 @@ function composeDeck(
                                                 
                              
                                                                                     
+                                          
+                                                          
+                                               
                                              
+
+function eventMatchesShortcut(e               , sc                )          {
+  const key = e.key.toLowerCase();
+  if (key !== sc.key) return false;
+  const needCtrl = sc.modifiers.includes('ctrl');
+  const needAlt = sc.modifiers.includes('alt');
+  const needShift = sc.modifiers.includes('shift');
+  const needMeta = sc.modifiers.includes('meta');
+  return (
+    e.ctrlKey === needCtrl &&
+    e.altKey === needAlt &&
+    e.shiftKey === needShift &&
+    e.metaKey === needMeta
+  );
+}
+
+function isLayerEligibleForState(
+  layer               ,
+  state                                                                       ,
+)          {
+  const { meta } = layer;
+  if (
+    meta.languages.length > 0 &&
+    state.activeLanguage &&
+    !meta.languages.includes(state.activeLanguage.toLowerCase())
+  ) {
+    return false;
+  }
+  if (meta.group !== null) {
+    return state.groupChoices[meta.group] === meta.filename;
+  }
+  if (meta.shortcuts.length > 0) {
+    return Boolean(state.toggles[meta.filename]);
+  }
+  return true;
+}
+
+function getAvailableStepsForSlide(
+  slide               ,
+  state                                                                       ,
+)           {
+  const stepSet = new Set        ([0]);
+  for (const layer of slide.layers) {
+    if (layer.meta.step > 0 && isLayerEligibleForState(layer, state)) {
+      stepSet.add(layer.meta.step);
+    }
+  }
+  return Array.from(stepSet).sort((a, b) => a - b);
+}
 
 class SyncBus {
           channel                          = null;
@@ -1596,28 +1677,6 @@ class LaserController {
 
 // --- src/player/presenter.ts ---
 
-function isLayerVisibleForState(
-  layer               ,
-  state                  ,
-)          {
-  const { meta } = layer;
-  if (meta.step > state.currentStep) return false;
-  if (
-    meta.languages.length > 0 &&
-    state.activeLanguage &&
-    !meta.languages.includes(state.activeLanguage.toLowerCase())
-  ) {
-    return false;
-  }
-  if (meta.group !== null) {
-    return state.groupChoices[meta.group] === meta.filename;
-  }
-  if (meta.shortcuts.length > 0) {
-    return Boolean(state.toggles[meta.filename]);
-  }
-  return true;
-}
-
 function renderSlidePreviewInto(
   container             ,
   deck          ,
@@ -1641,14 +1700,30 @@ function renderSlidePreviewInto(
 
   const grid = document.createElement('div');
   grid.className = 'slide-layers-grid';
-  const previewState                   = { ...state, currentStep: stepNum };
 
   for (const layer of slide.layers) {
-    if (!isLayerVisibleForState(layer, previewState)) continue;
+    if (layer.meta.step > stepNum) continue;
+    if (!isLayerEligibleForState(layer, state)) continue;
+
     const slot = document.createElement('div');
     slot.className = 'layer-slot';
     slot.innerHTML = layer.svgMarkup;
     applySwitchLanguage(slot, state.activeLanguage);
+
+    // Ensure SMIL entrance animations in preview settle visibly
+    slot.querySelectorAll('svg').forEach((svg) => {
+      try {
+        if (typeof svg.setCurrentTime === 'function') {
+          svg.setCurrentTime(60);
+        }
+        if (typeof svg.pauseAnimations === 'function') {
+          svg.pauseAnimations();
+        }
+      } catch {
+        // ignore if unsupported
+      }
+    });
+
     grid.appendChild(slot);
   }
 
@@ -1661,7 +1736,11 @@ function mountPresenterView(
   bus         ,
 )       {
   document.title = 'Presenter View — Slidesv';
-  let state                   = { ...initialState };
+  let state                   = {
+    ...initialState,
+    groupChoices: { ...initialState.groupChoices },
+    toggles: { ...initialState.toggles },
+  };
 
   let elapsedSeconds = 0;
   let timerRunning = true;
@@ -1695,12 +1774,14 @@ function mountPresenterView(
       </div>
 
       <div class="presenter-footer">
-        <div style="display:flex; gap:0.5rem;">
+        <div style="display:flex; gap:0.5rem; align-items:center;">
+          <button class="btn btn-sm" id="p-home" title="Slide 0">⌂</button>
           <button class="btn btn-sm" id="p-prev">← Previous</button>
           <button class="btn btn-sm btn-primary" id="p-next">Next →</button>
         </div>
-        <div style="color: var(--muted); font-size: 0.82rem;">
-          Synced via BroadcastChannel • Press <kbd>←</kbd> <kbd>→</kbd> or <kbd>Space</kbd>
+        <div class="presenter-controls-strip" id="p-controls-strip"></div>
+        <div style="color: var(--muted); font-size: 0.78rem;">
+          Synced via BroadcastChannel • <kbd>←</kbd> <kbd>→</kbd> <kbd>Space</kbd>
         </div>
       </div>
     </div>
@@ -1711,6 +1792,7 @@ function mountPresenterView(
   const nextLabelEl = document.getElementById('p-next-label') ;
   const nextEl = document.getElementById('p-next-preview') ;
   const notesEl = document.getElementById('p-notes') ;
+  const controlsEl = document.getElementById('p-controls-strip') ;
   const elapsedEl = document.getElementById('p-elapsed') ;
   const clockEl = document.getElementById('p-clock') ;
   const timerToggleBtn = document.getElementById('p-timer-toggle') ;
@@ -1744,13 +1826,95 @@ function mountPresenterView(
     updateClocks();
   });
 
+  const renderControls = () => {
+    const parts           = [];
+
+    if (deck.languages.length > 0) {
+      parts.push(`
+        <div class="presenter-ctrl-group">
+          <span class="presenter-ctrl-label">Lang</span>
+          ${deck.languages
+            .map(
+              (l) =>
+                `<button class="btn btn-sm btn-pill ${l === state.activeLanguage ? 'is-active' : ''}" data-p-lang="${l}">${l.toUpperCase()}</button>`,
+            )
+            .join('')}
+        </div>
+      `);
+    }
+
+    for (const g of deck.groups) {
+      parts.push(`
+        <div class="presenter-ctrl-group">
+          <span class="presenter-ctrl-label">${g.name}</span>
+          ${g.options
+            .map((opt) => {
+              const active = state.groupChoices[g.name] === opt.layerKey;
+              const kbd = opt.shortcuts.map((s) => `<kbd>${s.display}</kbd>`).join(' ');
+              return `<button class="btn btn-sm btn-pill ${active ? 'is-active' : ''}" data-p-group="${g.name}" data-p-key="${opt.layerKey}">${opt.title} ${kbd}</button>`;
+            })
+            .join('')}
+        </div>
+      `);
+    }
+
+    if (deck.toggles.length > 0) {
+      parts.push(`
+        <div class="presenter-ctrl-group">
+          <span class="presenter-ctrl-label">Toggles</span>
+          ${deck.toggles
+            .map((t) => {
+              const active = Boolean(state.toggles[t.layerKey]);
+              const kbd = t.shortcuts.map((s) => `<kbd>${s.display}</kbd>`).join(' ');
+              return `<button class="btn btn-sm ${active ? 'is-active' : ''}" data-p-toggle="${t.layerKey}">${t.title} ${kbd}</button>`;
+            })
+            .join('')}
+        </div>
+      `);
+    }
+
+    controlsEl.innerHTML = parts.join('');
+
+    controlsEl.querySelectorAll             ('[data-p-lang]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const lang = btn.dataset.pLang ?? '';
+        state.activeLanguage = lang;
+        render();
+        bus.send({ type: 'set-language', lang });
+      });
+    });
+
+    controlsEl.querySelectorAll             ('[data-p-group]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const group = btn.dataset.pGroup ?? '';
+        const layerKey = btn.dataset.pKey ?? '';
+        state.groupChoices[group] = layerKey;
+        render();
+        bus.send({ type: 'set-group', group, layerKey });
+      });
+    });
+
+    controlsEl.querySelectorAll             ('[data-p-toggle]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const layerKey = btn.dataset.pToggle ?? '';
+        state.toggles[layerKey] = !state.toggles[layerKey];
+        render();
+        bus.send({ type: 'toggle-filter', layerKey });
+      });
+    });
+  };
+
   const render = () => {
     const slide =
       state.currentSlide >= 1 ? deck.slides[state.currentSlide - 1] : null;
+    const steps = slide ? getAvailableStepsForSlide(slide, state) : [0];
+    const maxStep = steps[steps.length - 1] ?? 0;
+    const currentStepIdx = steps.indexOf(state.currentStep);
+
     titleEl.textContent =
       state.currentSlide === 0
         ? `Slide 0 (Starter) — ${deck.totalSlides} slides`
-        : `Slide ${state.currentSlide} / ${deck.totalSlides} — ${slide?.title ?? ''} (Step ${state.currentStep}/${slide?.maxStep ?? 0})`;
+        : `Slide ${state.currentSlide} / ${deck.totalSlides} — ${slide?.title ?? ''} (Step ${state.currentStep}/${maxStep})`;
 
     renderSlidePreviewInto(
       currentEl,
@@ -1763,10 +1927,18 @@ function mountPresenterView(
     let nextSlide = state.currentSlide;
     let nextStep = state.currentStep;
     if (state.currentSlide === 0) {
-      nextSlide = 1;
+      nextSlide = deck.totalSlides > 0 ? 1 : 0;
       nextStep = 0;
-    } else if (slide && state.currentStep < slide.maxStep) {
-      nextStep = state.currentStep + 1;
+    } else if (slide && currentStepIdx >= 0 && currentStepIdx < steps.length - 1) {
+      nextStep = steps[currentStepIdx + 1];
+    } else if (slide && state.currentStep < maxStep) {
+      const nextAvailable = steps.find((s) => s > state.currentStep);
+      if (nextAvailable !== undefined) {
+        nextStep = nextAvailable;
+      } else {
+        nextSlide = state.currentSlide + 1;
+        nextStep = 0;
+      }
     } else {
       nextSlide = state.currentSlide + 1;
       nextStep = 0;
@@ -1780,15 +1952,24 @@ function mountPresenterView(
 
     notesEl.textContent =
       slide?.notes || 'No speaker notes for this slide.';
+
+    renderControls();
   };
 
   bus.onMessage((msg) => {
     if (msg.type === 'state') {
-      state = msg.payload;
+      state = {
+        ...msg.payload,
+        groupChoices: { ...msg.payload.groupChoices },
+        toggles: { ...msg.payload.toggles },
+      };
       render();
     }
   });
 
+  document.getElementById('p-home') .addEventListener('click', () => {
+    bus.send({ type: 'nav', action: 'goto', slide: 0, step: 0 });
+  });
   document.getElementById('p-prev') .addEventListener('click', () => {
     bus.send({ type: 'nav', action: 'prev' });
   });
@@ -1797,12 +1978,36 @@ function mountPresenterView(
   });
 
   window.addEventListener('keydown', (e) => {
+    for (const g of deck.groups) {
+      for (const opt of g.options) {
+        if (opt.shortcuts.some((sc) => eventMatchesShortcut(e, sc))) {
+          e.preventDefault();
+          state.groupChoices[g.name] = opt.layerKey;
+          render();
+          bus.send({ type: 'set-group', group: g.name, layerKey: opt.layerKey });
+          return;
+        }
+      }
+    }
+    for (const t of deck.toggles) {
+      if (t.shortcuts.some((sc) => eventMatchesShortcut(e, sc))) {
+        e.preventDefault();
+        state.toggles[t.layerKey] = !state.toggles[t.layerKey];
+        render();
+        bus.send({ type: 'toggle-filter', layerKey: t.layerKey });
+        return;
+      }
+    }
+
     if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
       e.preventDefault();
       bus.send({ type: 'nav', action: 'next' });
     } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
       e.preventDefault();
       bus.send({ type: 'nav', action: 'prev' });
+    } else if (e.key === 'Home' || e.key === '0') {
+      e.preventDefault();
+      bus.send({ type: 'nav', action: 'goto', slide: 0, step: 0 });
     }
   });
 
@@ -1814,21 +2019,6 @@ function mountPresenterView(
 // --- src/player/runtime.ts ---
 
 
-
-function eventMatchesShortcut(e               , sc                )          {
-  const key = e.key.toLowerCase();
-  if (key !== sc.key) return false;
-  const needCtrl = sc.modifiers.includes('ctrl');
-  const needAlt = sc.modifiers.includes('alt');
-  const needShift = sc.modifiers.includes('shift');
-  const needMeta = sc.modifiers.includes('meta');
-  return (
-    e.ctrlKey === needCtrl &&
-    e.altKey === needAlt &&
-    e.shiftKey === needShift &&
-    e.metaKey === needMeta
-  );
-}
 
 class SlidePlayer {
           deck          ;
@@ -1851,7 +2041,12 @@ class SlidePlayer {
 
           slideFrames                = [];
 
-  constructor(deck          , initialLang         , initialFilters           ) {
+  constructor(
+    deck          ,
+    initialLang         ,
+    initialFilters           ,
+    skipStarterConfig          ,
+  ) {
     this.deck = deck;
     this.bus = new SyncBus();
 
@@ -1869,12 +2064,21 @@ class SlidePlayer {
       return;
     }
 
+    const skipParam =
+      params.get('skipStarter') ?? params.get('skip0') ?? params.get('start');
+    const shouldSkipStarter =
+      skipStarterConfig === true ||
+      skipParam === '1' ||
+      skipParam === 'true';
+
     const slideParam = params.get('slide');
     if (slideParam !== null) {
       const n = Number.parseInt(slideParam, 10);
       if (!Number.isNaN(n) && n >= 0 && n <= deck.totalSlides) {
         this.currentSlide = n;
       }
+    } else if (shouldSkipStarter && deck.totalSlides > 0) {
+      this.currentSlide = 1;
     }
 
     const stepParam = params.get('step');
@@ -1995,6 +2199,12 @@ class SlidePlayer {
         else if (msg.action === 'goto' && msg.slide !== undefined) {
           this.goToSlide(msg.slide, msg.step ?? 0);
         }
+      } else if (msg.type === 'set-language') {
+        this.setLanguage(msg.lang);
+      } else if (msg.type === 'set-group') {
+        this.selectGroupOption(msg.group, msg.layerKey);
+      } else if (msg.type === 'toggle-filter') {
+        this.toggleFilter(msg.layerKey);
       } else if (msg.type === 'laser') {
         if (msg.payload.active) {
           this.laserCtrl.showAt(msg.payload.x, msg.payload.y, false);
@@ -2164,12 +2374,16 @@ class SlidePlayer {
     }
 
     const slide = this.deck.slides[this.currentSlide - 1];
-    if (slide && this.currentStep < slide.maxStep) {
-      this.currentStep += 1;
-      this.applyVisibilityAndAnimations(true, this.currentStep);
-      this.renderHud();
-      this.broadcastState();
-      return;
+    if (slide) {
+      const steps = getAvailableStepsForSlide(slide, this.getSyncState());
+      const nextStep = steps.find((s) => s > this.currentStep);
+      if (nextStep !== undefined) {
+        this.currentStep = nextStep;
+        this.applyVisibilityAndAnimations(true, this.currentStep);
+        this.renderHud();
+        this.broadcastState();
+        return;
+      }
     }
 
     if (this.currentSlide < this.deck.totalSlides) {
@@ -2180,8 +2394,11 @@ class SlidePlayer {
          prev()       {
     if (this.currentSlide === 0) return;
 
-    if (this.currentStep > 0) {
-      this.currentStep -= 1;
+    const slide = this.deck.slides[this.currentSlide - 1];
+    if (slide && this.currentStep > 0) {
+      const steps = getAvailableStepsForSlide(slide, this.getSyncState());
+      const prevSteps = steps.filter((s) => s < this.currentStep);
+      this.currentStep = prevSteps[prevSteps.length - 1] ?? 0;
       this.applyVisibilityAndAnimations(false);
       this.renderHud();
       this.broadcastState();
@@ -2190,7 +2407,11 @@ class SlidePlayer {
 
     if (this.currentSlide > 1) {
       const prevSlide = this.deck.slides[this.currentSlide - 2];
-      this.goToSlide(this.currentSlide - 1, prevSlide ? prevSlide.maxStep : 0);
+      const prevSteps = prevSlide
+        ? getAvailableStepsForSlide(prevSlide, this.getSyncState())
+        : [0];
+      const maxPrevStep = prevSteps[prevSteps.length - 1] ?? 0;
+      this.goToSlide(this.currentSlide - 1, maxPrevStep);
     } else {
       this.goToSlide(0, 0);
     }
@@ -2522,9 +2743,11 @@ class SlidePlayer {
           renderHud()       {
     const slide =
       this.currentSlide >= 1 ? this.deck.slides[this.currentSlide - 1] : null;
+    const steps = slide ? getAvailableStepsForSlide(slide, this.getSyncState()) : [0];
+    const maxStep = steps[steps.length - 1] ?? 0;
     const stepText =
-      slide && slide.maxStep > 0
-        ? ` (${this.currentStep}/${slide.maxStep})`
+      slide && maxStep > 0
+        ? ` (${this.currentStep}/${maxStep})`
         : '';
 
     const langSelect =
@@ -2770,7 +2993,12 @@ async function checkForChanges(stamps                     )                   {
 async function bootstrap()                {
   if (window.__SLIDESV_DECK__) {
     const cfg = window.__SLIDESV_CONFIG__ ?? {};
-    new SlidePlayer(window.__SLIDESV_DECK__, cfg.lang, cfg.filters);
+    new SlidePlayer(
+      window.__SLIDESV_DECK__,
+      cfg.lang,
+      cfg.filters,
+      cfg.skipStarter,
+    );
     return;
   }
 

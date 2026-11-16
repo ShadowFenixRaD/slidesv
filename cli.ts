@@ -23,6 +23,7 @@ interface CliOptions {
   port: number;
   watch: boolean;
   pdf: boolean;
+  skipStarter: boolean;
   lang?: string;
   filters: string[];
 }
@@ -35,6 +36,7 @@ function parseArgs(argv: string[]): CliOptions {
   let port = 3000;
   let watchMode = false;
   let pdfMode = false;
+  let skipStarter = false;
   let lang: string | undefined;
   let filters: string[] = [];
 
@@ -45,6 +47,8 @@ function parseArgs(argv: string[]): CliOptions {
       watchMode = true;
     } else if (a === '--pdf') {
       pdfMode = true;
+    } else if (a === '--skip-starter') {
+      skipStarter = true;
     } else if (a === '--out' || a === '-o') {
       out = args[++i] ?? '';
     } else if (a === '--port' || a === '-p') {
@@ -89,6 +93,7 @@ function parseArgs(argv: string[]): CliOptions {
     port,
     watch: watchMode,
     pdf: pdfMode,
+    skipStarter,
     lang,
     filters,
   };
@@ -108,6 +113,7 @@ Options:
   --pdf                Export presentation to PDF using headless Chromium/Brave
   --lang <code>        Default/export language code (e.g. en, it)
   --filters <a,b>      Comma-separated filter titles/filenames to enable
+  --skip-starter       Skip Slide 0 starter and open directly on Slide 1
   --port, -p <port>    Dev server port (default: 3000)
 `);
 }
@@ -156,6 +162,7 @@ function runBuild(opts: CliOptions): void {
   const html = buildStandalonePresentationHtml(deck, fontCss, {
     lang: opts.lang,
     filters: opts.filters,
+    skipStarter: opts.skipStarter,
   });
 
   mkdirSync(dirname(opts.out), { recursive: true });

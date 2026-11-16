@@ -1,28 +1,12 @@
-import type { ComposedLayer, DeckData } from '../core/types.ts';
-import { applySwitchLanguage, SyncBus } from './tools.ts';
+import type { DeckData } from '../core/types.ts';
+import {
+  applySwitchLanguage,
+  eventMatchesShortcut,
+  getAvailableStepsForSlide,
+  isLayerEligibleForState,
+  SyncBus,
+} from './tools.ts';
 import type { SyncStatePayload } from './tools.ts';
-
-function isLayerVisibleForState(
-  layer: ComposedLayer,
-  state: SyncStatePayload,
-): boolean {
-  const { meta } = layer;
-  if (meta.step > state.currentStep) return false;
-  if (
-    meta.languages.length > 0 &&
-    state.activeLanguage &&
-    !meta.languages.includes(state.activeLanguage.toLowerCase())
-  ) {
-    return false;
-  }
-  if (meta.group !== null) {
-    return state.groupChoices[meta.group] === meta.filename;
-  }
-  if (meta.shortcuts.length > 0) {
-    return Boolean(state.toggles[meta.filename]);
-  }
-  return true;
-}
 
 function renderSlidePreviewInto(
   container: HTMLElement,
@@ -47,14 +31,30 @@ function renderSlidePreviewInto(
 
   const grid = document.createElement('div');
   grid.className = 'slide-layers-grid';
-  const previewState: SyncStatePayload = { ...state, currentStep: stepNum };
 
   for (const layer of slide.layers) {
-    if (!isLayerVisibleForState(layer, previewState)) continue;
+    if (layer.meta.step > stepNum) continue;
+    if (!isLayerEligibleForState(layer, state)) continue;
+
     const slot = document.createElement('div');
     slot.className = 'layer-slot';
     slot.innerHTML = layer.svgMarkup;
     applySwitchLanguage(slot, state.activeLanguage);
+
+    // Ensure SMIL entrance animations in preview settle visibly
+    slot.querySelectorAll('svg').forEach((svg) => {
+      try {
+        if (typeof svg.setCurrentTime === 'function') {
+          svg.setCurrentTime(60);
+        }
+        if (typeof svg.pauseAnimations === 'function') {
+          svg.pauseAnimations();
+        }
+      } catch {
+        // ignore if unsupported
+      }
+    });
+
     grid.appendChild(slot);
   }
 
@@ -67,7 +67,11 @@ export function mountPresenterView(
   bus: SyncBus,
 ): void {
   document.title = 'Presenter View — Slidesv';
-  let state: SyncStatePayload = { ...initialState };
+  let state: SyncStatePayload = {
+    ...initialState,
+    groupChoices: { ...initialState.groupChoices },
+    toggles: { ...initialState.toggles },
+  };
 
   let elapsedSeconds = 0;
   let timerRunning = true;
@@ -101,12 +105,14 @@ export function mountPresenterView(
       </div>
 
       <div class="presenter-footer">
-        <div style="display:flex; gap:0.5rem;">
+        <div style="display:flex; gap:0.5rem; align-items:center;">
+          <button class="btn btn-sm" id="p-home" title="Slide 0">⌂</button>
           <button class="btn btn-sm" id="p-prev">← Previous</button>
           <button class="btn btn-sm btn-primary" id="p-next">Next →</button>
         </div>
-        <div style="color: var(--muted); font-size: 0.82rem;">
-          Synced via BroadcastChannel • Press <kbd>←</kbd> <kbd>→</kbd> or <kbd>Space</kbd>
+        <div class="presenter-controls-strip" id="p-controls-strip"></div>
+        <div style="color: var(--muted); font-size: 0.78rem;">
+          Synced via BroadcastChannel • <kbd>←</kbd> <kbd>→</kbd> <kbd>Space</kbd>
         </div>
       </div>
     </div>
@@ -117,6 +123,7 @@ export function mountPresenterView(
   const nextLabelEl = document.getElementById('p-next-label')!;
   const nextEl = document.getElementById('p-next-preview')!;
   const notesEl = document.getElementById('p-notes')!;
+  const controlsEl = document.getElementById('p-controls-strip')!;
   const elapsedEl = document.getElementById('p-elapsed')!;
   const clockEl = document.getElementById('p-clock')!;
   const timerToggleBtn = document.getElementById('p-timer-toggle')!;
@@ -150,13 +157,95 @@ export function mountPresenterView(
     updateClocks();
   });
 
+  const renderControls = () => {
+    const parts: string[] = [];
+
+    if (deck.languages.length > 0) {
+      parts.push(`
+        <div class="presenter-ctrl-group">
+          <span class="presenter-ctrl-label">Lang</span>
+          ${deck.languages
+            .map(
+              (l) =>
+                `<button class="btn btn-sm btn-pill ${l === state.activeLanguage ? 'is-active' : ''}" data-p-lang="${l}">${l.toUpperCase()}</button>`,
+            )
+            .join('')}
+        </div>
+      `);
+    }
+
+    for (const g of deck.groups) {
+      parts.push(`
+        <div class="presenter-ctrl-group">
+          <span class="presenter-ctrl-label">${g.name}</span>
+          ${g.options
+            .map((opt) => {
+              const active = state.groupChoices[g.name] === opt.layerKey;
+              const kbd = opt.shortcuts.map((s) => `<kbd>${s.display}</kbd>`).join(' ');
+              return `<button class="btn btn-sm btn-pill ${active ? 'is-active' : ''}" data-p-group="${g.name}" data-p-key="${opt.layerKey}">${opt.title} ${kbd}</button>`;
+            })
+            .join('')}
+        </div>
+      `);
+    }
+
+    if (deck.toggles.length > 0) {
+      parts.push(`
+        <div class="presenter-ctrl-group">
+          <span class="presenter-ctrl-label">Toggles</span>
+          ${deck.toggles
+            .map((t) => {
+              const active = Boolean(state.toggles[t.layerKey]);
+              const kbd = t.shortcuts.map((s) => `<kbd>${s.display}</kbd>`).join(' ');
+              return `<button class="btn btn-sm ${active ? 'is-active' : ''}" data-p-toggle="${t.layerKey}">${t.title} ${kbd}</button>`;
+            })
+            .join('')}
+        </div>
+      `);
+    }
+
+    controlsEl.innerHTML = parts.join('');
+
+    controlsEl.querySelectorAll<HTMLElement>('[data-p-lang]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const lang = btn.dataset.pLang ?? '';
+        state.activeLanguage = lang;
+        render();
+        bus.send({ type: 'set-language', lang });
+      });
+    });
+
+    controlsEl.querySelectorAll<HTMLElement>('[data-p-group]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const group = btn.dataset.pGroup ?? '';
+        const layerKey = btn.dataset.pKey ?? '';
+        state.groupChoices[group] = layerKey;
+        render();
+        bus.send({ type: 'set-group', group, layerKey });
+      });
+    });
+
+    controlsEl.querySelectorAll<HTMLElement>('[data-p-toggle]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const layerKey = btn.dataset.pToggle ?? '';
+        state.toggles[layerKey] = !state.toggles[layerKey];
+        render();
+        bus.send({ type: 'toggle-filter', layerKey });
+      });
+    });
+  };
+
   const render = () => {
     const slide =
       state.currentSlide >= 1 ? deck.slides[state.currentSlide - 1] : null;
+    const steps = slide ? getAvailableStepsForSlide(slide, state) : [0];
+    const maxStep = steps[steps.length - 1] ?? 0;
+    const currentStepIdx = steps.indexOf(state.currentStep);
+
     titleEl.textContent =
       state.currentSlide === 0
         ? `Slide 0 (Starter) — ${deck.totalSlides} slides`
-        : `Slide ${state.currentSlide} / ${deck.totalSlides} — ${slide?.title ?? ''} (Step ${state.currentStep}/${slide?.maxStep ?? 0})`;
+        : `Slide ${state.currentSlide} / ${deck.totalSlides} — ${slide?.title ?? ''} (Step ${state.currentStep}/${maxStep})`;
 
     renderSlidePreviewInto(
       currentEl,
@@ -169,10 +258,18 @@ export function mountPresenterView(
     let nextSlide = state.currentSlide;
     let nextStep = state.currentStep;
     if (state.currentSlide === 0) {
-      nextSlide = 1;
+      nextSlide = deck.totalSlides > 0 ? 1 : 0;
       nextStep = 0;
-    } else if (slide && state.currentStep < slide.maxStep) {
-      nextStep = state.currentStep + 1;
+    } else if (slide && currentStepIdx >= 0 && currentStepIdx < steps.length - 1) {
+      nextStep = steps[currentStepIdx + 1];
+    } else if (slide && state.currentStep < maxStep) {
+      const nextAvailable = steps.find((s) => s > state.currentStep);
+      if (nextAvailable !== undefined) {
+        nextStep = nextAvailable;
+      } else {
+        nextSlide = state.currentSlide + 1;
+        nextStep = 0;
+      }
     } else {
       nextSlide = state.currentSlide + 1;
       nextStep = 0;
@@ -186,15 +283,24 @@ export function mountPresenterView(
 
     notesEl.textContent =
       slide?.notes || 'No speaker notes for this slide.';
+
+    renderControls();
   };
 
   bus.onMessage((msg) => {
     if (msg.type === 'state') {
-      state = msg.payload;
+      state = {
+        ...msg.payload,
+        groupChoices: { ...msg.payload.groupChoices },
+        toggles: { ...msg.payload.toggles },
+      };
       render();
     }
   });
 
+  document.getElementById('p-home')!.addEventListener('click', () => {
+    bus.send({ type: 'nav', action: 'goto', slide: 0, step: 0 });
+  });
   document.getElementById('p-prev')!.addEventListener('click', () => {
     bus.send({ type: 'nav', action: 'prev' });
   });
@@ -203,12 +309,36 @@ export function mountPresenterView(
   });
 
   window.addEventListener('keydown', (e) => {
+    for (const g of deck.groups) {
+      for (const opt of g.options) {
+        if (opt.shortcuts.some((sc) => eventMatchesShortcut(e, sc))) {
+          e.preventDefault();
+          state.groupChoices[g.name] = opt.layerKey;
+          render();
+          bus.send({ type: 'set-group', group: g.name, layerKey: opt.layerKey });
+          return;
+        }
+      }
+    }
+    for (const t of deck.toggles) {
+      if (t.shortcuts.some((sc) => eventMatchesShortcut(e, sc))) {
+        e.preventDefault();
+        state.toggles[t.layerKey] = !state.toggles[t.layerKey];
+        render();
+        bus.send({ type: 'toggle-filter', layerKey: t.layerKey });
+        return;
+      }
+    }
+
     if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
       e.preventDefault();
       bus.send({ type: 'nav', action: 'next' });
     } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
       e.preventDefault();
       bus.send({ type: 'nav', action: 'prev' });
+    } else if (e.key === 'Home' || e.key === '0') {
+      e.preventDefault();
+      bus.send({ type: 'nav', action: 'goto', slide: 0, step: 0 });
     }
   });
 

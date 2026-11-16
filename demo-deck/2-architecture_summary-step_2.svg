@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720">
+  <g font-family="sans-serif" fill="#f8fafc" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.4s" begin="0s" fill="freeze" />
+    <rect x="80" y="380" width="1120" height="120" rx="14" fill="#0f172a" stroke="#6366f1" stroke-width="2" />
+    <text x="115" y="432" font-size="22" font-weight="600" fill="#a5b4fc">Step 2 — Shared Runtime &amp; Bundler</text>
+    <text x="115" y="470" font-size="18" fill="#cbd5e1">Identical rendering between live index.html and dist/presentation.html</text>
+  </g>
+</svg>

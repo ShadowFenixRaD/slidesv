@@ -9,6 +9,7 @@ declare global {
     __SLIDESV_CONFIG__?: {
       lang?: string;
       filters?: string[];
+      skipStarter?: boolean;
     };
   }
 }
@@ -135,7 +136,12 @@ async function checkForChanges(stamps: Map<string, string>): Promise<boolean> {
 async function bootstrap(): Promise<void> {
   if (window.__SLIDESV_DECK__) {
     const cfg = window.__SLIDESV_CONFIG__ ?? {};
-    new SlidePlayer(window.__SLIDESV_DECK__, cfg.lang, cfg.filters);
+    new SlidePlayer(
+      window.__SLIDESV_DECK__,
+      cfg.lang,
+      cfg.filters,
+      cfg.skipStarter,
+    );
     return;
   }
 

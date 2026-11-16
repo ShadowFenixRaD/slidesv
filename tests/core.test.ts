@@ -184,4 +184,13 @@ test('cli: build demo-deck produces standalone dist/presentation.html', () => {
   assert.ok(html.includes('window.__SLIDESV_DECK__'));
   assert.ok(html.includes('"totalSlides":3'));
   assert.ok(html.includes('data-system-language=\\"it\\"'));
+  assert.ok(html.includes('"maxStep":2'));
+
+  execFileSync(
+    'node',
+    ['cli.ts', 'build', 'demo-deck', '--skip-starter', '--out', outPath],
+    { cwd: root, stdio: 'pipe' },
+  );
+  const skipHtml = readFileSync(outPath, 'utf8');
+  assert.ok(skipHtml.includes('"skipStarter":true'));
 });

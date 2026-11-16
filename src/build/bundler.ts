@@ -74,7 +74,7 @@ export function buildLiveIndexHtml(): string {
 export function buildStandalonePresentationHtml(
   deck: DeckData,
   fontCss: string,
-  config?: { lang?: string; filters?: string[] },
+  config?: { lang?: string; filters?: string[]; skipStarter?: boolean },
 ): string {
   const { js, css } = compileBrowserBundle();
   const deckJson = escapeJsonForScript(deck);
