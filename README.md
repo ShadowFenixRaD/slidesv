@@ -233,11 +233,11 @@ La **Presenter View** include anteprima slide corrente, anteprima slide/step suc
 
 ---
 
-## GitHub Releases (Workflow Manuale)
+## GitHub Releases
 
-Il workflow [.github/workflows/release.yml](.github/workflows/release.yml) è configurato con trigger manuale (`workflow_dispatch`) ed è vincolato a girare **solo su GitHub** (`if: github.server_url == 'https://github.com'`), restando inattivo su Forgejo.
+Il workflow [.github/workflows/release.yml](.github/workflows/release.yml) si avvia automaticamente quando viene pubblicata una Release su GitHub (`release: types: [published]`) ed è vincolato a girare **solo su GitHub** (`if: github.server_url == 'https://github.com'`), restando inattivo su Forgejo.
 
-Avviando il workflow da **Actions → Release → Run workflow** (specificando `tag`, es. `v0.2.0`), compila e pubblica i binari con relativi checksum `.sha256` per:
+Creando una Release da GitHub, il workflow compila e allega alla release i binari con relativi checksum `.sha256` per:
 - **Linux:** `x86_64-unknown-linux-gnu` (x64), `i686-unknown-linux-gnu` (x86), `aarch64-unknown-linux-gnu` (arm64), `armv7-unknown-linux-gnueabihf` (arm32)
 - **Windows:** `x86_64-pc-windows-msvc` (x64), `i686-pc-windows-msvc` (x86), `aarch64-pc-windows-msvc` (arm64)
 - **macOS:** `x86_64-apple-darwin` (x64), `aarch64-apple-darwin` (arm64)

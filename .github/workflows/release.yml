@@ -1,22 +1,8 @@
 name: Release
 
 on:
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: "Release tag (e.g. v0.2.0)"
-        required: true
-        type: string
-      draft:
-        description: "Create as draft release"
-        required: false
-        default: false
-        type: boolean
-      prerelease:
-        description: "Mark as pre-release"
-        required: false
-        default: false
-        type: boolean
+  release:
+    types: [published]
 
 permissions:
   contents: write
@@ -131,7 +117,8 @@ jobs:
         run: |
           mkdir -p release-assets
           BIN_NAME="svg-deck${{ matrix.ext }}"
-          PKG_NAME="svg-deck-${{ inputs.tag }}-${{ matrix.target }}.tar.gz"
+          TAG="${{ github.event.release.tag_name }}"
+          PKG_NAME="svg-deck-${TAG}-${{ matrix.target }}.tar.gz"
           cp "target/${{ matrix.target }}/release/${BIN_NAME}" "release-assets/${BIN_NAME}"
           tar -C release-assets -czf "release-assets/${PKG_NAME}" "${BIN_NAME}"
           rm "release-assets/${BIN_NAME}"
@@ -143,7 +130,8 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path release-assets | Out-Null
           $bin = "svg-deck${{ matrix.ext }}"
-          $pkg = "svg-deck-${{ inputs.tag }}-${{ matrix.target }}.zip"
+          $tag = "${{ github.event.release.tag_name }}"
+          $pkg = "svg-deck-$tag-${{ matrix.target }}.zip"
           Copy-Item "target/${{ matrix.target }}/release/$bin" "release-assets/$bin"
           Compress-Archive -Path "release-assets/$bin" -DestinationPath "release-assets/$pkg"
           Remove-Item "release-assets/$bin"
@@ -166,12 +154,7 @@ jobs:
           path: artifacts
           merge-multiple: true
 
-      - name: Publish GitHub Release
+      - name: Attach assets to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ inputs.tag }}
-          name: svg-deck ${{ inputs.tag }}
-          draft: ${{ inputs.draft }}
-          prerelease: ${{ inputs.prerelease }}
-          generate_release_notes: true
           files: artifacts/*
