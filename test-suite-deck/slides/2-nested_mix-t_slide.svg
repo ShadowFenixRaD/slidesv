@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" viewBox="0 0 1280 720">
+  <defs>
+    <linearGradient id="mixGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0ea5e9" />
+      <stop offset="100%" stop-color="#6366f1" />
+    </linearGradient>
+  </defs>
+  <style>.mix-title { font-family: sans-serif; font-weight: 700; }</style>
+
+  <g inkscape:label="base_en-lang_en">
+    <text x="80" y="130" class="mix-title" font-size="42" fill="#f8fafc">Slide 2 — Tier 1 File + Nested &lt;g&gt; Layers (EN)</text>
+    <rect x="80" y="175" width="1120" height="6" rx="3" fill="url(#mixGrad)" />
+  </g>
+
+  <g inkscape:label="base_it-lang_it" style="display:none">
+    <text x="80" y="130" class="mix-title" font-size="42" fill="#f8fafc">Slide 2 — File Tier 1 + Livelli &lt;g&gt; Annidati (IT)</text>
+    <rect x="80" y="175" width="1120" height="6" rx="3" fill="url(#mixGrad)" />
+  </g>
+
+  <g inkscape:label="box_step1-step_1" opacity="0">
+    <rect x="80" y="230" width="530" height="160" rx="14" fill="#1e293b" stroke="#06b6d4" stroke-width="2" />
+    <text x="115" y="295" font-family="sans-serif" font-size="24" fill="#67e8f9">Nested &lt;g&gt; Step 1</text>
+    <text x="115" y="335" font-family="sans-serif" font-size="18" fill="#cbd5e1">Inherits slide 2 selector from filename</text>
+  </g>
+
+  <g inkscape:label="extra_callout-s_ctrl_m" style="display:none">
+    <rect x="660" y="230" width="540" height="160" rx="14" fill="#31102f" stroke="#f472b6" stroke-width="2" />
+    <text x="695" y="295" font-family="sans-serif" font-size="24" fill="#f9a8d4">Hotkey Callout (Ctrl+M)</text>
+    <text x="695" y="335" font-family="sans-serif" font-size="18" fill="#fbcfe8">Nested toggle inside Tier 1 SVG</text>
+  </g>
+</svg>

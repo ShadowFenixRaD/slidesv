@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720">
+  <defs>
+    <radialGradient id="suiteBg" cx="20%" cy="20%" r="85%">
+      <stop offset="0%" stop-color="#162033" />
+      <stop offset="100%" stop-color="#070a10" />
+    </radialGradient>
+  </defs>
+  <rect width="1280" height="720" fill="url(#suiteBg)" />
+  <text x="40" y="695" fill="#475569" font-family="sans-serif" font-size="14">svg-deck test suite • {{DATE}}</text>
+</svg>

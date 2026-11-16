@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720">
+  <desc>Slide 5 (Tier 3): Standalone SVG passed via --file, auto-assigned sequentially.</desc>
+  <g font-family="sans-serif" fill="#f8fafc">
+    <text x="80" y="130" font-size="42" font-weight="700">Slide 5 — Tier 3 Standalone (--file)</text>
+    <rect x="120" y="460" width="140" height="140" rx="8" fill="#3b82f6" />
+    <rect x="320" y="360" width="140" height="240" rx="8" fill="#06b6d4" />
+    <rect x="520" y="260" width="140" height="340" rx="8" fill="#10b981" />
+    <rect x="720" y="310" width="140" height="290" rx="8" fill="#f59e0b" />
+    <rect x="920" y="210" width="140" height="390" rx="8" fill="#ec4899" />
+  </g>
+</svg>

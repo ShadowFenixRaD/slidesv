@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720">
+  <desc>Slide 1 (Tier 1): Cover with native &lt;switch&gt; and chained SMIL.</desc>
+  <g transform="translate(640, 310)" text-anchor="middle" font-family="sans-serif">
+    <switch>
+      <g systemLanguage="en">
+        <text y="0" fill="#f8fafc" font-size="60" font-weight="700" opacity="0">
+          svg-deck Full Test Suite
+          <animate id="c1" attributeName="opacity" from="0" to="1" dur="0.5s" begin="0s" fill="freeze" />
+        </text>
+        <text y="55" fill="#94a3b8" font-size="24" opacity="0">
+          Tier 1 + Tier 2 + Tier 3 • Mixed --file &amp; --folder
+          <animate attributeName="opacity" from="0" to="1" dur="0.4s" begin="c1.end+0.15s" fill="freeze" />
+        </text>
+      </g>
+      <g systemLanguage="it">
+        <text y="0" fill="#f8fafc" font-size="60" font-weight="700" opacity="0">
+          Suite Completa svg-deck
+          <animate id="c1it" attributeName="opacity" from="0" to="1" dur="0.5s" begin="0s" fill="freeze" />
+        </text>
+        <text y="55" fill="#94a3b8" font-size="24" opacity="0">
+          Tier 1 + Tier 2 + Tier 3 • Mix di --file e --folder
+          <animate attributeName="opacity" from="0" to="1" dur="0.4s" begin="c1it.end+0.15s" fill="freeze" />
+        </text>
+      </g>
+      <g>
+        <text y="0" fill="#f8fafc" font-size="60" font-weight="700">svg-deck Suite</text>
+      </g>
+    </switch>
+  </g>
+</svg>
