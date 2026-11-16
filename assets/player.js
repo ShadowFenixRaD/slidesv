@@ -188,7 +188,7 @@
   }
 
   function applySwitchLanguage(root, activeLang) {
-    const switches = root.querySelectorAll('switch');
+    const switches = root.querySelectorAll('g[data-slidesv-switch], switch');
     switches.forEach((sw) => {
       const children = Array.from(sw.children);
       let matched = null;

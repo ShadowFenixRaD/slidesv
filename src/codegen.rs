@@ -291,44 +291,60 @@ fn apply_switch_language_static(svg_markup: &str, lang: &str) -> String {
     if lang.is_empty() {
         return svg_markup.to_string();
     }
-    static SWITCH_RE: OnceLock<Regex> = OnceLock::new();
-    static CHILD_RE: OnceLock<Regex> = OnceLock::new();
-    static LANG_ATTR_RE: OnceLock<Regex> = OnceLock::new();
-
-    let switch_re = SWITCH_RE.get_or_init(|| Regex::new(r"(?is)<switch\b[^>]*>([\s\S]*?)</switch>").unwrap());
-    let child_re = CHILD_RE.get_or_init(|| {
-        Regex::new(r"(?is)<([A-Za-z_][\w:-]*)\b([^>]*)>([\s\S]*?)</\1>|<([A-Za-z_][\w:-]*)\b([^>]*)/>").unwrap()
-    });
-    let lang_attr_re = LANG_ATTR_RE
-        .get_or_init(|| Regex::new(r#"(?i)\bdata-system-language\s*=\s*(?:"([^"]*)"|'([^']*)')"#).unwrap());
-
+    let Ok(doc) = roxmltree::Document::parse(svg_markup) else {
+        return svg_markup.to_string();
+    };
     let target_base = lang.split('-').next().unwrap_or(lang);
+    let mut hide_ranges: Vec<(usize, usize)> = Vec::new();
 
-    switch_re
-        .replace_all(svg_markup, |caps: &regex::Captures| {
-            let inner = &caps[1];
-            let mut matched: Option<String> = None;
-            let mut fallback: Option<String> = None;
-
-            for c in child_re.captures_iter(inner) {
-                let attrs = c.get(2).or_else(|| c.get(5)).map(|m| m.as_str()).unwrap_or("");
-                if let Some(lc) = lang_attr_re.captures(attrs) {
-                    let attr_val = lc.get(1).or_else(|| lc.get(2)).map(|m| m.as_str()).unwrap_or("");
-                    let matches = attr_val.split(',').any(|part| {
+    for node in doc.descendants() {
+        if node.is_element()
+            && node.has_tag_name("g")
+            && node.attribute("data-slidesv-switch") == Some("1")
+        {
+            let children: Vec<_> = node.children().filter(|c| c.is_element()).collect();
+            if children.is_empty() {
+                continue;
+            }
+            let mut matched = None;
+            let mut fallback = None;
+            for (idx, child) in children.iter().enumerate() {
+                if let Some(attr_val) = child.attribute("data-system-language") {
+                    let is_match = attr_val.split(',').any(|part| {
                         let code = part.trim().to_ascii_lowercase();
                         code == lang || code.split('-').next().unwrap_or("") == target_base
                     });
-                    if matches && matched.is_none() {
-                        matched = Some(c[0].to_string());
+                    if is_match && matched.is_none() {
+                        matched = Some(idx);
                     }
                 } else if fallback.is_none() {
-                    fallback = Some(c[0].to_string());
+                    fallback = Some(idx);
                 }
             }
+            let winner = matched.or(fallback);
+            for (idx, child) in children.iter().enumerate() {
+                if Some(idx) != winner {
+                    let r = child.range();
+                    hide_ranges.push((r.start, r.end));
+                }
+            }
+        }
+    }
 
-            matched.or(fallback).unwrap_or_default()
-        })
-        .into_owned()
+    if hide_ranges.is_empty() {
+        return svg_markup.to_string();
+    }
+    hide_ranges.sort_by_key(|(s, _)| *s);
+    let mut out = String::with_capacity(svg_markup.len());
+    let mut pos = 0;
+    for (start, end) in hide_ranges {
+        if start >= pos && end <= svg_markup.len() {
+            out.push_str(&svg_markup[pos..start]);
+            pos = end;
+        }
+    }
+    out.push_str(&svg_markup[pos..]);
+    out
 }
 
 fn apply_managed_g_visibility_static(

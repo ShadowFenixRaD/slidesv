@@ -269,7 +269,9 @@ mod tests {
         assert!(clean.contains("url(#f0_g1)"));
         assert!(clean.contains("href=\"#f0_g1\""));
         assert!(clean.contains("begin=\"f0_a1.end+0.2s\""));
+        assert!(clean.contains("data-slidesv-switch=\"1\""));
         assert!(clean.contains("data-system-language=\"it\""));
+        assert!(!clean.contains("<switch"));
     }
 
     #[test]

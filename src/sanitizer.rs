@@ -126,6 +126,16 @@ fn root_svg_open_regex() -> &'static Regex {
     RE.get_or_init(|| Regex::new(r"(?is)<svg\b([^>]*)>").unwrap())
 }
 
+fn switch_open_regex() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"(?i)<switch\b([^>]*)>").unwrap())
+}
+
+fn switch_close_regex() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"(?i)</switch\s*>").unwrap())
+}
+
 fn system_lang_regex() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
     RE.get_or_init(|| Regex::new(r#"(?i)\bsystemLanguage\s*=\s*(?:"([^"]*)"|'([^']*)')"#).unwrap())
@@ -367,6 +377,13 @@ pub fn sanitize_and_namespace_svg(raw_svg: &str, prefix: &str, band: LayerBand) 
             format!("<svg{attrs}>")
         })
         .into_owned();
+
+    // Convert <switch> into <g data-slidesv-switch="1"> so the browser's native
+    // <switch> layout rule doesn't suppress non-first children when JS switches languages.
+    svg = switch_open_regex()
+        .replace_all(&svg, "<g data-slidesv-switch=\"1\"$1>")
+        .into_owned();
+    svg = switch_close_regex().replace_all(&svg, "</g>").into_owned();
 
     svg = system_lang_regex()
         .replace_all(&svg, |caps: &regex::Captures| {
