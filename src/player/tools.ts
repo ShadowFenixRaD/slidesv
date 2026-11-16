@@ -76,14 +76,21 @@ export class SyncBus {
   private channel: BroadcastChannel | null = null;
   private storageKey = 'slidesv_sync_msg';
   private listeners: Array<(msg: SyncMessage) => void> = [];
+  private seenIds = new Set<string>();
+  private seenOrder: string[] = [];
 
   constructor(channelName = 'slidesv-sync') {
     if (typeof BroadcastChannel !== 'undefined') {
       try {
         this.channel = new BroadcastChannel(channelName);
         this.channel.onmessage = (ev: MessageEvent) => {
-          if (ev.data && typeof ev.data === 'object') {
-            this.emit(ev.data as SyncMessage);
+          const data = ev.data as { id?: string; msg?: SyncMessage } | SyncMessage;
+          if (data && typeof data === 'object') {
+            if ('msg' in data && data.msg) {
+              this.emit(data.msg, data.id);
+            } else if ('type' in data) {
+              this.emit(data as SyncMessage);
+            }
           }
         };
       } catch {
@@ -91,13 +98,13 @@ export class SyncBus {
       }
     }
 
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && !this.channel) {
       window.addEventListener('storage', (ev: StorageEvent) => {
         if (ev.key === this.storageKey && ev.newValue) {
           try {
-            const parsed = JSON.parse(ev.newValue) as { msg: SyncMessage };
+            const parsed = JSON.parse(ev.newValue) as { id?: string; msg?: SyncMessage };
             if (parsed && parsed.msg) {
-              this.emit(parsed.msg);
+              this.emit(parsed.msg, parsed.id);
             }
           } catch {
             // ignore malformed storage payload
@@ -112,24 +119,35 @@ export class SyncBus {
   }
 
   send(msg: SyncMessage): void {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     if (this.channel) {
       try {
-        this.channel.postMessage(msg);
+        this.channel.postMessage({ id, msg });
+        return;
       } catch {
-        // ignore channel errors
+        // fallback to localStorage below
       }
     }
     try {
       localStorage.setItem(
         this.storageKey,
-        JSON.stringify({ ts: Date.now(), rand: Math.random(), msg }),
+        JSON.stringify({ id, ts: Date.now(), msg }),
       );
     } catch {
       // ignore storage quota/security errors
     }
   }
 
-  private emit(msg: SyncMessage): void {
+  private emit(msg: SyncMessage, id?: string): void {
+    if (id) {
+      if (this.seenIds.has(id)) return;
+      this.seenIds.add(id);
+      this.seenOrder.push(id);
+      if (this.seenOrder.length > 100) {
+        const oldest = this.seenOrder.shift();
+        if (oldest) this.seenIds.delete(oldest);
+      }
+    }
     for (const cb of this.listeners) {
       cb(msg);
     }
