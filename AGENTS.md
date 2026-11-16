@@ -1,7 +1,7 @@
-# Project Agent Rules — Slidesv
+# Project Agent Rules — svg-deck
 
-## 1. Parità e Sincronizzazione `index.html` ↔ Presenter View
-- Ogni funzionalità interattiva disponibile nello Stage (`index.html` / `src/player/runtime.ts`) **deve** essere disponibile e funzionare passo-passo anche nella Presenter View (`src/player/presenter.ts`), mantenendo lo stato sincronizzato in tempo reale tramite `SyncBus`:
+## 1. Parità e Sincronizzazione Stage ↔ Presenter View
+- Ogni funzionalità interattiva disponibile nello Stage (`assets/player.js`) **deve** essere disponibile e funzionare passo-passo anche nella Presenter View, mantenendo lo stato sincronizzato in tempo reale tramite `SyncBus` (`BroadcastChannel` + `localStorage` fallback con deduplicazione):
   - Navigazione completa per slide e per **tutti** gli step progressivi (`0..maxStep`, senza saltare step intermedi).
   - Selettore lingua (`-lang_...` e `<switch systemLanguage>`).
   - Selettori di gruppi radio / temi (`-g_<group>`).
@@ -9,8 +9,7 @@
   - Sincronizzazione bidirezionale dello stato (`state`, `nav`, `set-language`, `set-group`, `toggle-filter`, `laser`).
 
 ## 2. Build & Verifica Obbligatori
-- Dopo ogni modifica ai file in `src/core/`, `src/player/` o `src/build/`:
-  1. Eseguire `npm test` (`node --test tests/core.test.ts`).
-  2. Rigenerare `index.html` e `demo-deck/index.html` tramite `npm run build:index`.
-  3. Rigenerare `dist/presentation.html` tramite `node cli.ts build demo-deck --out dist/presentation.html`.
+- Dopo ogni modifica ai file in `src/` o `assets/`:
+  1. Eseguire `cargo test`.
+  2. Eseguire `cargo build --release` e verificare la compilazione su `demo-deck/`.
 - Per operazioni Git utilizzare sempre `gemgit` (mai `git`).

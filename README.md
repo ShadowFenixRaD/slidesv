@@ -1,27 +1,30 @@
-# Slidesv
+# svg-deck
 
-Zero-dependency SVG-based presentation engine and compiler in TypeScript.
-
-## Features
-
-- **Live Auto-Parsing (`index.html`)**: Drop `index.html` into any folder of `.svg` files and serve over HTTP with automatic 500ms polling hot-reload.
-- **Single-File Bundler (`cli.ts build`)**: Compiles into a standalone, offline-ready `dist/presentation.html` with Base64-embedded fonts and optional `--pdf` export.
-- **Shared Core (`src/core/`)**: Filename selector grammar (`n`, `n_m`, `,`, `!`), z-index bands (`underlay`, `normal`, `overlay`), progressive `-step_<k>`, transitions (`-t_<effect>`), radio groups (`-g_<group>`), hotkeys (`-s_<mod>_<key>`), SVG ID/SMIL namespacing, and dynamic tokens (`{{INDEX}}`, `{{TOTAL}}`, `{{TITLE}}`, `{{PROGRESS}}`, `{{DATE}}`).
-- **Dual-Mode Translations**: File-level `-lang_<codes>` layers and native SVG `<switch>` (`systemLanguage`) synchronized with Slide 0, HUD, and `?language=`.
-- **Stage & Presenter Tools**: Slide 0 Control Hub, `BroadcastChannel` Presenter View (`P`), Virtual Laser (`L`), Freehand Drawing (`D`/`C`), Overview Grid (`G`/`Esc`), and HUD toggle (`H`).
+Standalone, zero-dependency Rust CLI compiler that compiles one or more `.svg` files and/or folders into a single, self-contained, offline-ready `.html` presentation.
 
 ## Usage
 
 ```bash
-# Run tests
-npm test
+# Compile a folder of SVGs
+svg-deck --folder ./demo-deck -o presentation.html
 
-# Build standalone live index.html
-npm run build:index
+# Mix --file, --folder, and positional inputs in exact CLI order
+svg-deck --file master.svg --folder ./overlays -o presentation.html
+svg-deck master.svg ./extra_slides -o presentation.html
 
-# Serve demo-deck in live mode
-node cli.ts serve demo-deck --port 3000
+# Watch mode, font embedding, and PDF export
+svg-deck --folder ./demo-deck --embed-fonts --watch -o presentation.html
+svg-deck --folder ./demo-deck --pdf --lang it --filters "Theme Amber" -o presentation.html
+```
 
-# Build single-file presentation
-node cli.ts build demo-deck --out demo-deck/dist/presentation.html
+## Player Behavior
+- Opens directly on **Slide 1, Step 0** by default.
+- Append `?home=1` to open the **Home Launcher (Slide 0)** with language selector, filter toggles, radio groups, and Presenter View launcher (or press `Home` / `0` / click `⌂` in the HUD).
+- Press `P` for synchronized **Presenter View**, `G` / `Esc` for **Overview Grid**, hold `L` for **Virtual Laser**, `D`/`C` for **Freehand Drawing**, and `H` to toggle the **HUD**.
+
+## Development
+
+```bash
+cargo test
+cargo build --release
 ```

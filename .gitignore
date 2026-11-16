@@ -1,4 +1,5 @@
-node_modules/
+target/
 dist/
 *.pdf
+presentation.html
 .DS_Store
