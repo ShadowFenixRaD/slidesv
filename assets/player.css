@@ -122,9 +122,9 @@ body {
   display: block;
 }
 
-.layer-slot > svg[data-sized="1"] {
-  width: initial;
-  height: initial;
+.stage-wrapper .layer-slot > svg[data-sized="1"] {
+  width: auto;
+  height: auto;
   max-width: none;
   max-height: none;
 }

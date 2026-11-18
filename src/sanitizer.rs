@@ -1144,20 +1144,25 @@ pub fn compose_deck(
                     desc_notes,
                     ..
                 } => {
-                    // Group matching <g> layers on this slide by z_index
-                    let mut by_z: BTreeMap<i32, Vec<usize>> = BTreeMap::new();
+                    // Group matching <g> layers on this slide by (z_index, sizing)
+                    let mut by_slot: BTreeMap<(i32, SizingSpec), Vec<usize>> = BTreeMap::new();
                     for (g_idx, g) in groups.iter().enumerate() {
                         if matches_slide(&g.meta.selector, slide_index) {
-                            by_z.entry(g.meta.z_index).or_default().push(g_idx);
+                            by_slot
+                                .entry((g.meta.z_index, g.meta.sizing.clone()))
+                                .or_default()
+                                .push(g_idx);
                         }
                     }
 
-                    if by_z.is_empty() {
+                    if by_slot.is_empty() {
                         continue;
                     }
 
-                    let single_slot = by_z.len() == 1;
-                    for (slot_idx, (z_idx, g_indices)) in by_z.into_iter().enumerate() {
+                    let single_slot = by_slot.len() == 1;
+                    for (slot_idx, ((z_idx, slot_sizing), g_indices)) in
+                        by_slot.into_iter().enumerate()
+                    {
                         let active_set: HashSet<usize> = g_indices.iter().copied().collect();
                         let intact = rewrite_intact_svg_for_slot(clean_raw, groups, &active_set);
                         let first_meta = &groups[g_indices[0]].meta;
@@ -1166,16 +1171,11 @@ pub fn compose_deck(
                         } else {
                             format!("f{}_s{}_b{}_", entry.file_idx, slide_index, slot_idx)
                         };
-                        let empty_sizing = SizingSpec::default();
-                        let root_sizing = file_meta
-                            .as_ref()
-                            .map(|fm| &fm.sizing)
-                            .unwrap_or(&empty_sizing);
                         let svg_template = sanitize_and_namespace_svg(
                             &intact,
                             &prefix,
                             first_meta.band,
-                            root_sizing,
+                            &slot_sizing,
                         );
 
                         let mut slot_meta = file_meta.clone().unwrap_or_else(|| first_meta.clone());

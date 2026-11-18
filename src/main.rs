@@ -495,5 +495,17 @@ mod tests {
         let g_meta = parse_layer_label("1-badge-sized", "deck.svg#1-badge-sized").unwrap();
         let g_out = annotate_active_g(r#"<g id="badge">"#, &g_meta);
         assert!(g_out.contains("data-sized=\"1\""));
+
+        // Per-<g> sizing isolation in MultiLayer SVG (5-file_mix_layers.svg)
+        let mix_discovered = discover_inputs(&[InputSource::File(PathBuf::from(
+            "sizing-deck/slides/5-file_mix_layers.svg",
+        ))])
+        .unwrap();
+        let mix_deck = compose_deck(&mix_discovered.svg_files, &[], "2026-11-18");
+        assert_eq!(mix_deck.slides[4].max_step, 3);
+        assert_eq!(mix_deck.slides[4].layers.len(), 3);
+        assert!(mix_deck.slides[4].layers.iter().any(|l| l.svg_markup.contains("preserveAspectRatio=\"xMidYMid meet\"")));
+        assert!(mix_deck.slides[4].layers.iter().any(|l| l.svg_markup.contains("preserveAspectRatio=\"none\"")));
+        assert!(mix_deck.slides[4].layers.iter().any(|l| l.svg_markup.contains("data-sized=\"1\"") && l.svg_markup.contains("width=\"1280px\"")));
     }
 }

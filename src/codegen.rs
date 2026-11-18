@@ -513,8 +513,8 @@ pub fn export_deck_to_pdf(
       display: block;
     }}
     .pdf-layer > svg[data-sized="1"] {{
-      width: initial;
-      height: initial;
+      width: auto;
+      height: auto;
     }}
   </style>
 </head>

@@ -44,7 +44,7 @@ pub struct ParsedShortcut {
     pub signature: String,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SizingSpec {
     pub unboxed: bool,
