@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" width="1280px" height="720px">
+  <g inkscape:label="layer_default">
+    <g font-family="sans-serif" fill="#f8fafc">
+      <switch>
+        <text x="70px" y="110px" font-size="38px" font-weight="700" systemLanguage="en">5. File (default) + &lt;g&gt; Mix (default / -boxed / -unboxed / -sized)</text>
+        <text x="70px" y="110px" font-size="38px" font-weight="700" systemLanguage="it">5. File (default) + Mix &lt;g&gt; (default / -boxed / -unboxed / -sized)</text>
+        <text x="70px" y="110px" font-size="38px" font-weight="700">5. Mix</text>
+      </switch>
+      <rect x="70px" y="160px" width="260px" height="140px" rx="12px" fill="#1e293b" stroke="#64748b" stroke-width="2px" />
+      <text x="95px" y="235px" font-size="20px">&lt;g&gt; default (boxed)</text>
+    </g>
+  </g>
+
+  <g inkscape:label="layer_boxed-boxed-step_1">
+    <rect x="360px" y="160px" width="260px" height="140px" rx="12px" fill="#064e3b" stroke="#10b981" stroke-width="2px" />
+    <text x="385px" y="235px" font-family="sans-serif" font-size="20px" fill="#a7f3d0">Step 1: &lt;g&gt; -boxed</text>
+  </g>
+
+  <g inkscape:label="layer_unboxed-unboxed-step_2">
+    <rect x="650px" y="160px" width="260px" height="140px" rx="12px" fill="#451a03" stroke="#f59e0b" stroke-width="2px" />
+    <text x="675px" y="235px" font-family="sans-serif" font-size="20px" fill="#fde68a">Step 2: &lt;g&gt; -unboxed</text>
+  </g>
+
+  <g inkscape:label="layer_sized-sized-step_3">
+    <rect x="940px" y="160px" width="260px" height="140px" rx="12px" fill="#31102f" stroke="#ec4899" stroke-width="2px" />
+    <text x="965px" y="235px" font-family="sans-serif" font-size="20px" fill="#fbcfe8">Step 3: &lt;g&gt; -sized</text>
+  </g>
+</svg>

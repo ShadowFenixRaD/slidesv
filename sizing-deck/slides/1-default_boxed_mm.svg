@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="210mm" height="118mm">
+  <rect x="4mm" y="4mm" width="202mm" height="110mm" rx="4mm" fill="none" stroke="#38bdf8" stroke-width="0.8mm" />
+  <circle cx="105mm" cy="64mm" r="24mm" fill="#0284c7" opacity="0.35" stroke="#38bdf8" stroke-width="1mm" />
+  <g font-family="sans-serif" fill="#f8fafc" text-anchor="middle">
+    <switch>
+      <g systemLanguage="en">
+        <text x="105mm" y="22mm" font-size="8mm" font-weight="700">1. File Default (boxed) — 210mm × 118mm</text>
+        <text x="105mm" y="31mm" font-size="4.5mm" fill="#94a3b8">No tag: mm converted to viewBox units, circle stays round</text>
+      </g>
+      <g systemLanguage="it">
+        <text x="105mm" y="22mm" font-size="8mm" font-weight="700">1. File Default (boxed) — 210mm × 118mm</text>
+        <text x="105mm" y="31mm" font-size="4.5mm" fill="#94a3b8">Nessun tag: mm convertiti in viewBox, il cerchio resta tondo</text>
+      </g>
+      <g><text x="105mm" y="22mm" font-size="8mm">Default boxed</text></g>
+    </switch>
+  </g>
+</svg>

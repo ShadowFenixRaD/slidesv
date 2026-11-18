@@ -123,6 +123,10 @@ Nei livelli `<g>` interni (`inkscape:label` o `id`), è inoltre supportato il pr
 - **`-g_<group>`** e **`-default`**: gruppo radio mutuamente esclusivo (es. `-g_palette`). Se un'opzione ha `-default` parte attiva; altrimenti parte attiva la prima del gruppo.
 - **`-lang_<code1>[_<code2>...]`**: associa il layer a uno o più codici lingua ISO (es. `-lang_en`, `-lang_it_en`).
 - **`-s_<mod>_<key>`** *(ripetibile)*: scorciatoia da tastiera (es. `-s_ctrl_alt_z`, `-s_alt_n`, `-s_ctrl_win_z`). I layer con `-s_...` (e senza `-default`) partono nascosti e aggiungono un pulsante toggle nell'HUD, nell'Home Launcher e nella Presenter View.
+- **Proporzioni e Dimensionamento (`-unboxed` / `-sized`)**:
+  - *(Default — boxed)*: tutti i componenti e le slide convertono le eventuali unità fisiche (`mm`, `cm`, `in`, `pt`, `pc`, `px`) nelle coordinate del `viewBox` (sintetizzato se mancante) e mantengono le proporzioni originali (`preserveAspectRatio="xMidYMid meet"`), scalando proporzionalmente allo schermo (es. un 16:9 rimane 16:9).
+  - **`-unboxed`** *(su file o `<g>`)*: disattiva il vincolo delle proporzioni adattando il layer a larghezza e altezza dello schermo (`preserveAspectRatio="none"`).
+  - **`-sized`** *(su file o `<g>`)*: mantiene le esatte dimensioni originali (`px`, `mm`, `cm`, ecc.) dell'elemento e dei suoi figli senza che il compilatore le modifichi (`data-sized="1"`).
 
 ---
 

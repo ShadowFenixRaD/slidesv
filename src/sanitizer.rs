@@ -1,6 +1,6 @@
 use crate::discovery::DiscoveredInput;
 use crate::parser::{
-    LayerBand, LayerMeta, ParsedShortcut, TransitionType, create_single_slide_selector,
+    LayerBand, LayerMeta, ParsedShortcut, SizingSpec, TransitionType, create_single_slide_selector,
     matches_slide, max_positive_slide, parse_layer_label, parse_sidecar_filename,
     parse_tier1_filename,
 };
@@ -287,6 +287,13 @@ pub fn annotate_active_g(g_open_tag: &str, meta: &LayerMeta) -> String {
     };
     attrs.push_str(&format!(" data-band=\"{band_str}\""));
 
+    if meta.sizing.unboxed {
+        attrs.push_str(" data-unboxed=\"1\"");
+    }
+    if meta.sizing.sized {
+        attrs.push_str(" data-sized=\"1\"");
+    }
+
     format!("{prefix}{attrs}{closing}")
 }
 
@@ -308,44 +315,76 @@ fn find_open_tag_end(source: &str, start: usize) -> usize {
     source.len()
 }
 
-fn normalize_root_svg_attrs(attrs: &str, band: LayerBand) -> String {
+fn normalize_root_svg_attrs(attrs: &str, band: LayerBand, sizing: &SizingSpec) -> String {
     static VB_RE: OnceLock<Regex> = OnceLock::new();
     static W_RE: OnceLock<Regex> = OnceLock::new();
     static H_RE: OnceLock<Regex> = OnceLock::new();
     static WH_STRIP_RE: OnceLock<Regex> = OnceLock::new();
+    static PAR_RE: OnceLock<Regex> = OnceLock::new();
     static STYLE_RE: OnceLock<Regex> = OnceLock::new();
     static BG_PROP_RE: OnceLock<Regex> = OnceLock::new();
 
     let vb_re = VB_RE.get_or_init(|| Regex::new(r"(?i)\bviewBox\s*=").unwrap());
     let w_re = W_RE.get_or_init(|| {
-        Regex::new(r#"(?i)\bwidth\s*=\s*(?:"([0-9.]+)(?:px)?"|'([0-9.]+)(?:px)?')"#).unwrap()
+        Regex::new(
+            r#"(?i)\bwidth\s*=\s*(?:"([0-9.]+)(?:px|mm|cm|in|pt|pc|em|rem)?"|'([0-9.]+)(?:px|mm|cm|in|pt|pc|em|rem)?')"#,
+        )
+        .unwrap()
     });
     let h_re = H_RE.get_or_init(|| {
-        Regex::new(r#"(?i)\bheight\s*=\s*(?:"([0-9.]+)(?:px)?"|'([0-9.]+)(?:px)?')"#).unwrap()
+        Regex::new(
+            r#"(?i)\bheight\s*=\s*(?:"([0-9.]+)(?:px|mm|cm|in|pt|pc|em|rem)?"|'([0-9.]+)(?:px|mm|cm|in|pt|pc|em|rem)?')"#,
+        )
+        .unwrap()
     });
     let wh_strip = WH_STRIP_RE.get_or_init(|| {
         Regex::new(r#"(?i)\s+\b(?:width|height)\s*=\s*(?:"[^"]*"|'[^']*')"#).unwrap()
     });
+    let par_re = PAR_RE
+        .get_or_init(|| Regex::new(r#"(?i)\bpreserveAspectRatio\s*=\s*(?:"[^"]*"|'[^']*')"#).unwrap());
     let style_re = STYLE_RE.get_or_init(|| Regex::new(r#"(?is)\bstyle\s*=\s*"([^"]*)""#).unwrap());
     let bg_prop =
         BG_PROP_RE.get_or_init(|| Regex::new(r"(?i)^background(?:-color)?\s*:").unwrap());
 
     let mut cleaned = attrs.to_string();
-    if !vb_re.is_match(&cleaned) {
-        let w = w_re
-            .captures(&cleaned)
-            .and_then(|c| c.get(1).or_else(|| c.get(2)))
-            .map(|m| m.as_str().to_string());
-        let h = h_re
-            .captures(&cleaned)
-            .and_then(|c| c.get(1).or_else(|| c.get(2)))
-            .map(|m| m.as_str().to_string());
-        if let (Some(w), Some(h)) = (w, h) {
-            cleaned.push_str(&format!(" viewBox=\"0 0 {w} {h}\""));
+
+    if sizing.sized {
+        // -sized: do NOT touch width, height, viewBox, or preserveAspectRatio
+        if !cleaned.contains("data-sized=") {
+            cleaned.push_str(" data-sized=\"1\"");
+        }
+    } else {
+        if !vb_re.is_match(&cleaned) {
+            let w = w_re
+                .captures(&cleaned)
+                .and_then(|c| c.get(1).or_else(|| c.get(2)))
+                .map(|m| m.as_str().to_string());
+            let h = h_re
+                .captures(&cleaned)
+                .and_then(|c| c.get(1).or_else(|| c.get(2)))
+                .map(|m| m.as_str().to_string());
+            if let (Some(w), Some(h)) = (w, h) {
+                cleaned.push_str(&format!(" viewBox=\"0 0 {w} {h}\""));
+            }
+        }
+
+        cleaned = wh_strip.replace_all(&cleaned, "").into_owned();
+
+        let par_val = if sizing.unboxed {
+            if !cleaned.contains("data-unboxed=") {
+                cleaned.push_str(" data-unboxed=\"1\"");
+            }
+            "preserveAspectRatio=\"none\""
+        } else {
+            "preserveAspectRatio=\"xMidYMid meet\""
+        };
+        if par_re.is_match(&cleaned) {
+            cleaned = par_re.replace_all(&cleaned, par_val).into_owned();
+        } else {
+            cleaned.push(' ');
+            cleaned.push_str(par_val);
         }
     }
-
-    cleaned = wh_strip.replace_all(&cleaned, "").into_owned();
 
     if band == LayerBand::Underlay || band == LayerBand::Overlay {
         if style_re.is_match(&cleaned) {
@@ -368,15 +407,172 @@ fn normalize_root_svg_attrs(attrs: &str, band: LayerBand) -> String {
     cleaned
 }
 
-pub fn sanitize_and_namespace_svg(raw_svg: &str, prefix: &str, band: LayerBand) -> String {
+fn unit_to_px(val: f64, unit: &str) -> Option<f64> {
+    match unit.to_ascii_lowercase().as_str() {
+        "" | "px" => Some(val),
+        "in" => Some(val * 96.0),
+        "cm" => Some(val * 96.0 / 2.54),
+        "mm" => Some(val * 96.0 / 25.4),
+        "pt" => Some(val * 96.0 / 72.0),
+        "pc" => Some(val * 16.0),
+        _ => None,
+    }
+}
+
+fn format_num(v: f64) -> String {
+    let rounded = (v * 1000.0).round() / 1000.0;
+    if (rounded - rounded.round()).abs() < 1e-6 {
+        format!("{}", rounded.round() as i64)
+    } else {
+        let s = format!("{rounded:.3}");
+        s.trim_end_matches('0').trim_end_matches('.').to_string()
+    }
+}
+
+fn extract_root_dim_px(attrs: &str, attr_name: &str) -> Option<f64> {
+    let pattern = format!(
+        r#"(?i)\b{attr_name}\s*=\s*(?:"([0-9.]+)(px|mm|cm|in|pt|pc)?"|'([0-9.]+)(px|mm|cm|in|pt|pc)?')"#
+    );
+    let re = Regex::new(&pattern).ok()?;
+    let caps = re.captures(attrs)?;
+    let num_str = caps.get(1).or_else(|| caps.get(3))?.as_str();
+    let unit_str = caps
+        .get(2)
+        .or_else(|| caps.get(4))
+        .map(|m| m.as_str())
+        .unwrap_or("");
+    let val: f64 = num_str.parse().ok()?;
+    unit_to_px(val, unit_str)
+}
+
+fn extract_viewbox_dims(svg: &str) -> Option<(f64, f64)> {
+    static VB_VAL_RE: OnceLock<Regex> = OnceLock::new();
+    let re = VB_VAL_RE.get_or_init(|| {
+        Regex::new(r#"(?i)\bviewBox\s*=\s*(?:"([^"]+)"|'([^']+)')"#).unwrap()
+    });
+    let caps = re.captures(svg)?;
+    let raw = caps.get(1).or_else(|| caps.get(2))?.as_str();
+    let nums: Vec<f64> = raw
+        .split(|c: char| c.is_whitespace() || c == ',')
+        .filter(|s| !s.is_empty())
+        .filter_map(|s| s.parse::<f64>().ok())
+        .collect();
+    if nums.len() == 4 && nums[2] > 0.0 && nums[3] > 0.0 {
+        Some((nums[2], nums[3]))
+    } else {
+        None
+    }
+}
+
+/// Convert geometric attributes with physical units (`px`, `mm`, `cm`, `in`, `pt`, `pc`)
+/// into `viewBox` user units so all elements scale proportionally with the slide,
+/// skipping any `<g ... data-sized="1">...</g>` subtrees.
+fn normalize_inner_units_to_viewbox(
+    full_svg: &str,
+    body_start: usize,
+    scale_x: f64,
+    scale_y: f64,
+) -> String {
+    static GEOM_ATTR_RE: OnceLock<Regex> = OnceLock::new();
+    let geom_re = GEOM_ATTR_RE.get_or_init(|| {
+        Regex::new(
+            r#"(?i)\b(x|y|x1|y1|x2|y2|dx|dy|cx|cy|r|rx|ry|width|height|font-size|stroke-width)\s*=\s*(?:"([0-9.]+)(px|mm|cm|in|pt|pc)"|'([0-9.]+)(px|mm|cm|in|pt|pc)')"#,
+        )
+        .unwrap()
+    });
+
+    let replace_chunk = |chunk: &str| -> String {
+        geom_re
+            .replace_all(chunk, |caps: &regex::Captures| {
+                let attr = &caps[1];
+                let num_str = caps.get(2).or_else(|| caps.get(4)).map(|m| m.as_str()).unwrap_or("0");
+                let unit = caps.get(3).or_else(|| caps.get(5)).map(|m| m.as_str()).unwrap_or("px");
+                let Ok(val) = num_str.parse::<f64>() else {
+                    return caps[0].to_string();
+                };
+                let Some(px) = unit_to_px(val, unit) else {
+                    return caps[0].to_string();
+                };
+                let factor = match attr.to_ascii_lowercase().as_str() {
+                    "y" | "y1" | "y2" | "dy" | "cy" | "ry" | "height" => scale_y,
+                    _ => scale_x,
+                };
+                format!("{attr}=\"{}\"", format_num(px * factor))
+            })
+            .into_owned()
+    };
+
+    let body = &full_svg[body_start..];
+    if !body.contains("data-sized=\"1\"") {
+        return format!("{}{}", &full_svg[..body_start], replace_chunk(body));
+    }
+
+    let Ok(doc) = Document::parse(full_svg) else {
+        return format!("{}{}", &full_svg[..body_start], replace_chunk(body));
+    };
+
+    let mut sized_ranges: Vec<std::ops::Range<usize>> = doc
+        .descendants()
+        .filter(|n| n.is_element() && n.has_tag_name("g") && n.attribute("data-sized") == Some("1"))
+        .map(|n| n.range())
+        .collect();
+    sized_ranges.sort_by_key(|r| r.start);
+
+    let mut out = String::with_capacity(full_svg.len());
+    out.push_str(&full_svg[..body_start]);
+    let mut pos = body_start;
+    for r in sized_ranges {
+        if r.start > pos && r.start <= full_svg.len() {
+            out.push_str(&replace_chunk(&full_svg[pos..r.start]));
+            pos = r.start;
+        }
+        if r.end > pos && r.end <= full_svg.len() {
+            out.push_str(&full_svg[pos..r.end]);
+            pos = r.end;
+        }
+    }
+    if pos < full_svg.len() {
+        out.push_str(&replace_chunk(&full_svg[pos..]));
+    }
+    out
+}
+
+pub fn sanitize_and_namespace_svg(
+    raw_svg: &str,
+    prefix: &str,
+    band: LayerBand,
+    sizing: &SizingSpec,
+) -> String {
     let mut svg = strip_xml_prolog(raw_svg);
+
+    let mut unit_scale: Option<(f64, f64)> = None;
+    if !sizing.sized
+        && let Some(caps) = root_svg_open_regex().captures(&svg)
+    {
+        let orig_attrs = &caps[1];
+        let root_w_px = extract_root_dim_px(orig_attrs, "width");
+        let root_h_px = extract_root_dim_px(orig_attrs, "height");
+        let normalized_root = normalize_root_svg_attrs(orig_attrs, band, sizing);
+        if let Some((vb_w, vb_h)) = extract_viewbox_dims(&normalized_root) {
+            let sx = root_w_px.map(|w| vb_w / w).unwrap_or(1.0);
+            let sy = root_h_px.map(|h| vb_h / h).unwrap_or(sx);
+            unit_scale = Some((sx, sy));
+        }
+    }
 
     svg = root_svg_open_regex()
         .replace(&svg, |caps: &regex::Captures| {
-            let attrs = normalize_root_svg_attrs(&caps[1], band);
+            let attrs = normalize_root_svg_attrs(&caps[1], band, sizing);
             format!("<svg{attrs}>")
         })
         .into_owned();
+
+    if !sizing.sized
+        && let Some((sx, sy)) = unit_scale
+        && let Some(m) = root_svg_open_regex().find(&svg)
+    {
+        svg = normalize_inner_units_to_viewbox(&svg, m.end(), sx, sy);
+    }
 
     // Convert <switch> into <g data-slidesv-switch="1"> so the browser's native
     // <switch> layout rule doesn't suppress non-first children when JS switches languages.
@@ -588,6 +784,12 @@ fn merge_nested_meta(parent: &LayerMeta, child: &LayerMeta) -> LayerMeta {
         merged.title = child.title.clone();
         merged.raw_title = child.raw_title.clone();
     }
+    if child.sizing.unboxed {
+        merged.sizing.unboxed = true;
+    }
+    if child.sizing.sized {
+        merged.sizing.sized = true;
+    }
     merged
 }
 
@@ -665,6 +867,7 @@ pub fn compose_deck(
                         is_default: false,
                         languages: Vec::new(),
                         shortcuts: Vec::new(),
+                        sizing: SizingSpec::default(),
                     }
                 });
                 current_max_slide = current_max_slide.max(max_positive_slide(&meta.selector));
@@ -784,6 +987,7 @@ pub fn compose_deck(
                 is_default: false,
                 languages: Vec::new(),
                 shortcuts: Vec::new(),
+                sizing: SizingSpec::default(),
             };
             entries.push(ParsedFileEntry {
                 file_idx,
@@ -921,7 +1125,8 @@ pub fn compose_deck(
                         continue;
                     }
                     let prefix = format!("f{}_", entry.file_idx);
-                    let svg_template = sanitize_and_namespace_svg(raw_svg, &prefix, meta.band);
+                    let svg_template =
+                        sanitize_and_namespace_svg(raw_svg, &prefix, meta.band, &meta.sizing);
                     candidates.push(SlotCandidate {
                         z_index: meta.z_index,
                         min_step: meta.step,
@@ -961,8 +1166,17 @@ pub fn compose_deck(
                         } else {
                             format!("f{}_s{}_b{}_", entry.file_idx, slide_index, slot_idx)
                         };
-                        let svg_template =
-                            sanitize_and_namespace_svg(&intact, &prefix, first_meta.band);
+                        let empty_sizing = SizingSpec::default();
+                        let root_sizing = file_meta
+                            .as_ref()
+                            .map(|fm| &fm.sizing)
+                            .unwrap_or(&empty_sizing);
+                        let svg_template = sanitize_and_namespace_svg(
+                            &intact,
+                            &prefix,
+                            first_meta.band,
+                            root_sizing,
+                        );
 
                         let mut slot_meta = file_meta.clone().unwrap_or_else(|| first_meta.clone());
                         slot_meta.band = first_meta.band;

@@ -173,7 +173,8 @@ mod tests {
     use crate::cli::InputSource;
     use crate::discovery::{DiscoveredInput, natural_cmp};
     use crate::parser::{
-        LayerBand, TransitionType, matches_slide, parse_layer_label, parse_tier1_filename,
+        LayerBand, SizingSpec, TransitionType, matches_slide, parse_layer_label,
+        parse_tier1_filename,
     };
     use crate::sanitizer::{
         annotate_active_g, force_g_hidden, sanitize_and_namespace_svg, strip_g_visibility,
@@ -260,7 +261,12 @@ mod tests {
   <switch><text systemLanguage="it">Ciao</text></switch>
 </svg>"##;
 
-        let clean = sanitize_and_namespace_svg(raw, "f0_", LayerBand::Overlay);
+        let clean = sanitize_and_namespace_svg(
+            raw,
+            "f0_",
+            LayerBand::Overlay,
+            &SizingSpec::default(),
+        );
         assert!(!clean.contains("<?xml"));
         assert!(!clean.contains("<!DOCTYPE"));
         assert!(clean.contains("viewBox=\"0 0 1280 720\""));
@@ -431,5 +437,63 @@ mod tests {
         let s1_svg = &deck.slides[0].layers[0].svg_markup;
         assert!(s1_svg.contains("id=\"f0_1_2-wrapper\""));
         assert!(!s1_svg.contains("id=\"f0_1_2-wrapper\" transform=\"translate(5,5)\" style=\"display: none\""));
+    }
+
+    #[test]
+    fn test_sizing_and_physical_dimensions() {
+        let m_unboxed = parse_tier1_filename("1-diagram-unboxed.svg").unwrap();
+        assert!(m_unboxed.sizing.unboxed);
+        assert!(!m_unboxed.sizing.sized);
+
+        let m_sized = parse_tier1_filename("1-icon-sized.svg").unwrap();
+        assert!(m_sized.sizing.sized);
+        assert!(!m_sized.sizing.unboxed);
+
+        // Old -desize / -size tokens must no longer be treated as sizing options
+        assert!(parse_tier1_filename("plain-desize.svg").is_none());
+        assert!(parse_tier1_filename("plain-size_50.svg").is_none());
+
+        // Physical units (210mm x 297mm):
+        // Default (boxed) -> synthesize viewBox, strip width/height, convert inner mm to viewBox user units
+        let inkscape_svg = r#"<svg xmlns="http://www.w3.org/2000/svg" width="210mm" height="297mm"><circle cx="105mm" cy="148mm" r="30mm"/><g data-sized="1"><rect x="10mm" y="10mm" width="50mm" height="20mm"/></g></svg>"#;
+        let default_out = sanitize_and_namespace_svg(
+            inkscape_svg,
+            "f0_",
+            LayerBand::Normal,
+            &SizingSpec::default(),
+        );
+        assert!(default_out.contains("viewBox=\"0 0 210 297\""));
+        assert!(default_out.contains("preserveAspectRatio=\"xMidYMid meet\""));
+        assert!(default_out.contains("cx=\"105\" cy=\"148\" r=\"30\""));
+        // Inside data-sized="1", physical units remain untouched
+        assert!(default_out.contains("x=\"10mm\" y=\"10mm\" width=\"50mm\" height=\"20mm\""));
+
+        // -unboxed -> stretch to width and height (preserveAspectRatio="none")
+        let unboxed_out = sanitize_and_namespace_svg(
+            inkscape_svg,
+            "f1_",
+            LayerBand::Normal,
+            &m_unboxed.sizing,
+        );
+        assert!(unboxed_out.contains("viewBox=\"0 0 210 297\""));
+        assert!(unboxed_out.contains("preserveAspectRatio=\"none\""));
+        assert!(unboxed_out.contains("data-unboxed=\"1\""));
+        assert!(!unboxed_out.contains("210mm"));
+
+        // -sized -> untouched width/height in original units (mm/px) + data-sized="1"
+        let sized_out =
+            sanitize_and_namespace_svg(inkscape_svg, "f2_", LayerBand::Normal, &m_sized.sizing);
+        assert!(sized_out.contains("width=\"210mm\""));
+        assert!(sized_out.contains("height=\"297mm\""));
+        assert!(sized_out.contains("data-sized=\"1\""));
+
+        // Internal <g> with -unboxed and -sized
+        let g_unboxed = parse_layer_label("1-bg-unboxed", "deck.svg#1-bg-unboxed").unwrap();
+        let g_unboxed_out = annotate_active_g(r#"<g id="bg">"#, &g_unboxed);
+        assert!(g_unboxed_out.contains("data-unboxed=\"1\""));
+
+        let g_meta = parse_layer_label("1-badge-sized", "deck.svg#1-badge-sized").unwrap();
+        let g_out = annotate_active_g(r#"<g id="badge">"#, &g_meta);
+        assert!(g_out.contains("data-sized=\"1\""));
     }
 }

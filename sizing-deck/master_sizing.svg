@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" width="1280px" height="720px">
+  <g inkscape:label="slide_7">
+    <g font-family="sans-serif" fill="#f8fafc">
+      <switch>
+        <text x="80px" y="130px" font-size="40px" font-weight="700" systemLanguage="en">7. Tier 2 &lt;g&gt; Default (boxed) + &lt;g&gt; -sized</text>
+        <text x="80px" y="130px" font-size="40px" font-weight="700" systemLanguage="it">7. Tier 2 &lt;g&gt; Default (boxed) + &lt;g&gt; -sized</text>
+        <text x="80px" y="130px" font-size="40px" font-weight="700">7. Tier 2</text>
+      </switch>
+      <circle cx="300px" cy="360px" r="100px" fill="#0ea5e9" opacity="0.3" stroke="#38bdf8" stroke-width="3px" />
+    </g>
+  </g>
+
+  <g inkscape:label="slide_7-grp_sized-sized">
+    <rect x="520px" y="260px" width="520px" height="160px" rx="14px" fill="#1e293b" stroke="#a855f7" stroke-width="2px" />
+    <text x="555px" y="348px" font-family="sans-serif" font-size="22px" fill="#e9d5ff">Tier 2 &lt;g&gt; -sized (520px × 160px)</text>
+  </g>
+
+  <g inkscape:label="slide_8-unboxed">
+    <rect x="40px" y="40px" width="1200px" height="640px" fill="none" stroke="#f59e0b" stroke-width="4px" />
+    <g font-family="sans-serif" fill="#f8fafc">
+      <switch>
+        <text x="80px" y="130px" font-size="40px" font-weight="700" systemLanguage="en">8. Tier 2 &lt;g&gt; -unboxed + Step 1 &lt;g&gt; -boxed</text>
+        <text x="80px" y="130px" font-size="40px" font-weight="700" systemLanguage="it">8. Tier 2 &lt;g&gt; -unboxed + Step 1 &lt;g&gt; -boxed</text>
+        <text x="80px" y="130px" font-size="40px" font-weight="700">8. Tier 2</text>
+      </switch>
+    </g>
+  </g>
+
+  <g inkscape:label="slide_8-grp_boxed-boxed-step_1">
+    <rect x="80px" y="210px" width="500px" height="140px" rx="12px" fill="#064e3b" stroke="#10b981" stroke-width="2px" />
+    <text x="115px" y="288px" font-family="sans-serif" font-size="22px" fill="#a7f3d0">Step 1: Tier 2 &lt;g&gt; -boxed</text>
+  </g>
+</svg>

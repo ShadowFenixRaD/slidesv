@@ -44,6 +44,13 @@ pub struct ParsedShortcut {
     pub signature: String,
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SizingSpec {
+    pub unboxed: bool,
+    pub sized: bool,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LayerMeta {
@@ -60,6 +67,7 @@ pub struct LayerMeta {
     pub is_default: bool,
     pub languages: Vec<String>,
     pub shortcuts: Vec<ParsedShortcut>,
+    pub sizing: SizingSpec,
 }
 
 #[derive(Debug, Clone)]
@@ -236,6 +244,9 @@ fn is_option_token(tok: &str) -> bool {
         || tok == "default"
         || tok.starts_with("lang_")
         || tok.starts_with("s_")
+        || tok == "boxed"
+        || tok == "unboxed"
+        || tok == "sized"
 }
 
 #[derive(Debug, Default)]
@@ -247,6 +258,7 @@ pub struct ParsedOptions {
     pub is_default: bool,
     pub languages: Vec<String>,
     pub shortcuts: Vec<ParsedShortcut>,
+    pub sizing: SizingSpec,
     pub matched_any_option: bool,
 }
 
@@ -330,6 +342,14 @@ pub fn parse_option_tokens(tokens: &[&str]) -> ParsedOptions {
                 opts.shortcuts.push(sc);
                 opts.matched_any_option = true;
             }
+        } else if tok == "boxed" {
+            opts.matched_any_option = true;
+        } else if tok == "unboxed" {
+            opts.sizing.unboxed = true;
+            opts.matched_any_option = true;
+        } else if tok == "sized" {
+            opts.sizing.sized = true;
+            opts.matched_any_option = true;
         }
 
         i += 1;
@@ -390,6 +410,7 @@ pub fn parse_tier1_filename(filename: &str) -> Option<LayerMeta> {
         is_default: opts.is_default,
         languages: opts.languages,
         shortcuts: opts.shortcuts,
+        sizing: opts.sizing,
     })
 }
 
@@ -461,6 +482,7 @@ pub fn parse_layer_label(label: &str, layer_key: &str) -> Option<LayerMeta> {
         is_default: opts.is_default,
         languages: opts.languages,
         shortcuts: opts.shortcuts,
+        sizing: opts.sizing,
     })
 }
 

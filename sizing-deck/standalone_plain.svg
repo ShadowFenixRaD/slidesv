@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280px" height="720px">
+  <g font-family="sans-serif" fill="#f8fafc" text-anchor="middle">
+    <switch>
+      <text x="640px" y="300px" font-size="44px" font-weight="700" systemLanguage="en">9. Tier 3 Plain Standalone (No Tags = Default boxed)</text>
+      <text x="640px" y="300px" font-size="44px" font-weight="700" systemLanguage="it">9. Tier 3 Standalone Puro (Nessun Tag = Default boxed)</text>
+      <text x="640px" y="300px" font-size="44px" font-weight="700">9. Tier 3</text>
+    </switch>
+    <circle cx="640px" cy="460px" r="80px" fill="#10b981" opacity="0.3" stroke="#34d399" stroke-width="3px" />
+  </g>
+</svg>

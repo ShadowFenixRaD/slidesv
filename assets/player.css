@@ -122,6 +122,13 @@ body {
   display: block;
 }
 
+.layer-slot > svg[data-sized="1"] {
+  width: initial;
+  height: initial;
+  max-width: none;
+  max-height: none;
+}
+
 .layer-slot.layer-hidden {
   opacity: 0 !important;
   visibility: hidden;
