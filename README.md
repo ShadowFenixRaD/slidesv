@@ -2,6 +2,8 @@
 
 Compilatore CLI standalone e zero-dependency scritto in Rust che trasforma uno o più file `.svg` e/o cartelle in una **singola presentazione `.html` autonoma e offline-ready**, completa di runtime interattivo, Presenter View sincronizzata, animazioni SMIL native, traduzioni multilingua e supporto per l'export PDF.
 
+> Per agenti AI / LLM: vedi il riferimento compatto [llms.txt](llms.txt).
+
 ---
 
 ## Indice

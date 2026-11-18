@@ -1,0 +1,36 @@
+# svg-deck (AI / Agent Quick Reference)
+
+Zero-dependency Rust CLI compiling `.svg` files/folders into a single offline `.html` presentation.
+
+## CLI
+`svg-deck [--file <f.svg>]... [--folder <dir>]... [<pos>]... [-o out.html] [--watch] [--embed-fonts] [--pdf] [--lang <code>] [--filters <a,b>]`
+- Inputs are processed in exact CLI order; folder entries sort naturally (`2` < `10`) and deduplicate by canonical path.
+- Build/test: `cargo test` | `cargo build --release`
+
+## 3-Tier Resolution (Per `.svg`)
+1. **Tier 1 (Filename matches grammar):** Whole file scheduled with filename rules; internal `<g>`s matching grammar inherit file selector/rules, while unmanaged root visuals emit once in a base slot.
+2. **Tier 2 (Unstructured filename + grammar `<g>`s):** Inspects `<g>` (`inkscape:label` priority, `id` fallback); keeps full `<svg>` (`<defs>`, `<style>`, parent `transform`s) intact and clones per `(z_index, sizing)`.
+3. **Tier 3 (Plain SVG):** Auto-assigned to `current_max_slide + 1` in CLI order.
+
+## Grammar (`-`-delimited; `_` in `<title>` -> space)
+- **File:** `[<sel>-]<title>[-underlay[_<z>]|-overlay[_<z>]][-step_<k>][-t_<trans>][-g_<grp>][-lang_<codes>][-default][-s_<mods>_<key>][-boxed|-unboxed|-sized].svg`
+- **`<g>` label/id:** Also accepts `slide_<sel>` prefix (e.g. `slide_3-step_1`, `2_4-bg-underlay`).
+- **`<sel>`:** `n` | `n_m` | `a,b` | `!n` (`!1` = all except 1; `1_5,!3` = 1..5 except 3; omitted = all slides).
+- **Bands:** `-underlay[_z]` (`z=-1000+z`), normal (`z=0`), `-overlay[_z]` (`z=1000+z`).
+- **Steps & Transitions:** `-step_<k>` (`0`..`N`), `-t_<fade|slide|zoom|none>`.
+- **Filters:** `-g_<group>` (radio, `-default` or first active), `-s_<ctrl|alt|shift|win>_<key>` (repeatable toggle, hidden unless `-default`).
+- **Sizing:**
+  - Default (`boxed` / `-boxed`): synthesizes `viewBox`, converts physical units (`mm,cm,in,pt,pc,px`) to `viewBox` user units, strips root `width`/`height`, sets `preserveAspectRatio="xMidYMid meet"`.
+  - `-unboxed`: stretches to viewport (`preserveAspectRatio="none"`).
+  - `-sized`: preserves exact `width`/`height` & units (`data-sized="1"`), untouched by compiler.
+
+## Authoring Slides
+- **Editor visibility:** `display="none"`, `visibility="hidden"`, `opacity="0"` on managed `<g>`s are stripped automatically.
+- **Placeholders:** `{{INDEX}}`, `{{TOTAL}}`, `{{TITLE}}`, `{{PROGRESS}}` (`0..100`), `{{DATE}}`.
+- **i18n:** Use `-lang_en_it` layers OR native `<switch>` (`systemLanguage="en"` / `"it"` + unmarked fallback). `<switch>` is compiled to `<g data-slidesv-switch="1">` so all languages render dynamically.
+- **SMIL:** Chained `begin="id.end+0.2s"` is namespaced automatically. Step 0 resets on slide entry; `step > 0` in multi-layer SVGs triggers `.beginElement()` on newly revealed `<g data-step>`.
+- **Notes:** Sidecar `<sel>-<title>.md`/`.txt` or `<desc>` tags (scoped to enclosing `<g>` if inside one).
+
+## Player Runtime
+- Starts on **Slide 1, Step 0** (`?home=1` opens Slide 0 Launcher; `?language=it`, `?slide=N&step=K`, `?presenter=1`).
+- Keys: `→`/`Space` next, `←` prev, `P` Presenter View (`BroadcastChannel` synced), `G`/`Esc` grid, hold `L` laser, `D`/`C` draw/clear, `H` HUD, `F` fullscreen, `Home`/`0` launcher.
