@@ -103,6 +103,7 @@ enum FileKind {
         clean_raw: String,
         file_meta: Option<LayerMeta>,
         groups: Vec<ManagedGroupInfo>,
+        unmanaged_visual_open_tags: Vec<(usize, usize)>,
         desc_notes: Vec<String>,
         system_languages: Vec<String>,
     },
@@ -801,8 +802,10 @@ fn rewrite_intact_svg_for_slot(
     clean_raw: &str,
     groups: &[ManagedGroupInfo],
     active_indices: &HashSet<usize>,
+    unmanaged_to_hide: &[(usize, usize)],
 ) -> String {
-    let mut edits: Vec<(usize, usize, String)> = Vec::with_capacity(groups.len());
+    let mut edits: Vec<(usize, usize, String)> =
+        Vec::with_capacity(groups.len() + unmanaged_to_hide.len());
     for (idx, g) in groups.iter().enumerate() {
         let orig_open = &clean_raw[g.open_tag_start..g.open_tag_end];
         let is_ancestor_of_active = active_indices.iter().any(|&a_idx| {
@@ -818,6 +821,11 @@ fn rewrite_intact_svg_for_slot(
             force_g_hidden(orig_open)
         };
         edits.push((g.open_tag_start, g.open_tag_end, replacement));
+    }
+
+    for &(start, end) in unmanaged_to_hide {
+        let orig_open = &clean_raw[start..end];
+        edits.push((start, end, force_g_hidden(orig_open)));
     }
 
     edits.sort_by_key(|(start, _, _)| *start);
@@ -918,6 +926,37 @@ pub fn compose_deck(
 
         let desc_notes = extract_scoped_desc_notes(&doc, root, &mut matched_groups);
 
+        let unmanaged_visual_open_tags: Vec<(usize, usize)> = if tier1_meta.is_some()
+            && !matched_groups.is_empty()
+        {
+            root.children()
+                .filter(|c| {
+                    if !c.is_element()
+                        || c.has_tag_name("defs")
+                        || c.has_tag_name("style")
+                        || c.has_tag_name("desc")
+                        || c.has_tag_name("title")
+                        || c.has_tag_name("metadata")
+                        || c.has_tag_name("namedview")
+                    {
+                        return false;
+                    }
+                    let cr = c.range();
+                    // Exclude if this node is a managed group or encloses a managed group
+                    !matched_groups
+                        .iter()
+                        .any(|mg| cr.start <= mg.full_range.start && mg.full_range.end <= cr.end)
+                })
+                .map(|c| {
+                    let start = c.range().start;
+                    let open_end = find_open_tag_end(&clean_raw, start);
+                    (start, open_end)
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
+
         if let Some(file_meta) = tier1_meta {
             current_max_slide = current_max_slide.max(max_positive_slide(&file_meta.selector));
             if matched_groups.is_empty() {
@@ -950,6 +989,7 @@ pub fn compose_deck(
                         clean_raw,
                         file_meta: Some(file_meta),
                         groups: matched_groups,
+                        unmanaged_visual_open_tags,
                         desc_notes: notes,
                         system_languages: sys_langs,
                     },
@@ -965,6 +1005,7 @@ pub fn compose_deck(
                     clean_raw,
                     file_meta: None,
                     groups: matched_groups,
+                    unmanaged_visual_open_tags,
                     desc_notes,
                     system_languages: sys_langs,
                 },
@@ -1141,6 +1182,7 @@ pub fn compose_deck(
                     clean_raw,
                     file_meta,
                     groups,
+                    unmanaged_visual_open_tags,
                     desc_notes,
                     ..
                 } => {
@@ -1155,22 +1197,61 @@ pub fn compose_deck(
                         }
                     }
 
-                    if by_slot.is_empty() {
+                    let has_base_slot = !unmanaged_visual_open_tags.is_empty()
+                        && file_meta
+                            .as_ref()
+                            .is_some_and(|fm| matches_slide(&fm.selector, slide_index));
+
+                    if by_slot.is_empty() && !has_base_slot {
                         continue;
                     }
 
-                    let single_slot = by_slot.len() == 1;
-                    for (slot_idx, ((z_idx, slot_sizing), g_indices)) in
-                        by_slot.into_iter().enumerate()
-                    {
+                    let total_slots = by_slot.len() + usize::from(has_base_slot);
+                    let single_slot = total_slots == 1;
+                    let mut next_slot_idx = 0usize;
+
+                    if has_base_slot && let Some(fm) = file_meta {
+                        let empty_set = HashSet::new();
+                        let intact = rewrite_intact_svg_for_slot(clean_raw, groups, &empty_set, &[]);
+                        let prefix = if single_slot {
+                            format!("f{}_", entry.file_idx)
+                        } else {
+                            format!("f{}_s{}_b{}_", entry.file_idx, slide_index, next_slot_idx)
+                        };
+                        next_slot_idx += 1;
+                        let svg_template =
+                            sanitize_and_namespace_svg(&intact, &prefix, fm.band, &fm.sizing);
+                        let slot_notes = if fm.band == LayerBand::Normal {
+                            desc_notes.clone()
+                        } else {
+                            Vec::new()
+                        };
+                        candidates.push(SlotCandidate {
+                            z_index: fm.z_index,
+                            min_step: fm.step,
+                            file_order,
+                            meta: fm.clone(),
+                            sub_layers: Vec::new(),
+                            svg_template,
+                            desc_notes: slot_notes,
+                        });
+                    }
+
+                    for ((z_idx, slot_sizing), g_indices) in by_slot {
                         let active_set: HashSet<usize> = g_indices.iter().copied().collect();
-                        let intact = rewrite_intact_svg_for_slot(clean_raw, groups, &active_set);
+                        let intact = rewrite_intact_svg_for_slot(
+                            clean_raw,
+                            groups,
+                            &active_set,
+                            unmanaged_visual_open_tags,
+                        );
                         let first_meta = &groups[g_indices[0]].meta;
                         let prefix = if single_slot {
                             format!("f{}_", entry.file_idx)
                         } else {
-                            format!("f{}_s{}_b{}_", entry.file_idx, slide_index, slot_idx)
+                            format!("f{}_s{}_b{}_", entry.file_idx, slide_index, next_slot_idx)
                         };
+                        next_slot_idx += 1;
                         let svg_template = sanitize_and_namespace_svg(
                             &intact,
                             &prefix,
@@ -1207,7 +1288,9 @@ pub fn compose_deck(
                             .collect();
 
                         let min_step = sub_layers.iter().map(|s| s.step).min().unwrap_or(0);
-                        let mut slot_notes = if slot_idx == 0 && first_meta.band == LayerBand::Normal
+                        let mut slot_notes = if !has_base_slot
+                            && next_slot_idx == 1
+                            && first_meta.band == LayerBand::Normal
                         {
                             desc_notes.clone()
                         } else {

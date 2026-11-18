@@ -503,7 +503,8 @@ mod tests {
         .unwrap();
         let mix_deck = compose_deck(&mix_discovered.svg_files, &[], "2026-11-18");
         assert_eq!(mix_deck.slides[4].max_step, 3);
-        assert_eq!(mix_deck.slides[4].layers.len(), 3);
+        assert_eq!(mix_deck.slides[4].layers.len(), 4);
+        assert_eq!(mix_deck.slides[4].layers[0].meta.step, 0);
         assert!(mix_deck.slides[4].layers.iter().any(|l| l.svg_markup.contains("preserveAspectRatio=\"xMidYMid meet\"")));
         assert!(mix_deck.slides[4].layers.iter().any(|l| l.svg_markup.contains("preserveAspectRatio=\"none\"")));
         assert!(mix_deck.slides[4].layers.iter().any(|l| l.svg_markup.contains("data-sized=\"1\"") && l.svg_markup.contains("width=\"1280px\"")));
